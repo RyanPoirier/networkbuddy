@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
   const hunterData = await domainRes.json()
   const emails = hunterData.data?.emails ?? []
-  const domain = hunterData.data?.domain ?? ''
+  const hunterDomain = hunterData.data?.domain ?? ''
 
   if (emails.length === 0) {
     return NextResponse.json({ contacts: [], source: 'hunter_empty' })
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
     full_name: `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim(),
     title: e.position ?? '',
     company,
-    domain,
+    domain: hunterDomain,
     email: e.value ?? null,
     linkedin_url: e.linkedin ?? null,
     email_verified: (e.confidence ?? 0) >= 90,

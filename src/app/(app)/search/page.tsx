@@ -12,6 +12,8 @@ function SearchContent() {
 
   const [query, setQuery] = useState(initialCompany)
   const [input, setInput] = useState(initialCompany)
+  const [roleInput, setRoleInput] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
   const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -45,6 +47,7 @@ function SearchContent() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setQuery(input)
+    setRoleFilter(roleInput)
     handleSearch(input)
   }
 
@@ -56,15 +59,26 @@ function SearchContent() {
       </div>
 
       <form onSubmit={onSubmit} className="flex gap-3 mb-8">
-        <div className="flex-1 relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            placeholder="e.g. Shopify, Google, RBC..."
-            className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent bg-white text-[#0f1f3d]"
-          />
+        <div className="flex-1 flex gap-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              placeholder="e.g. Shopify, Google, RBC..."
+              className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent bg-white text-[#0f1f3d]"
+            />
+          </div>
+          <div className="relative w-48">
+            <input
+              type="text"
+              value={roleInput}
+              onChange={e => setRoleInput(e.target.value)}
+              placeholder="Role (optional)"
+              className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent bg-white text-[#0f1f3d]"
+            />
+          </div>
         </div>
         <button
           type="submit"
@@ -97,14 +111,32 @@ function SearchContent() {
 
       {!loading && contacts.length > 0 && (
         <div>
-          <p className="text-sm text-slate-500 mb-4">
-            Found <strong>{contacts.length}</strong> contact{contacts.length !== 1 ? 's' : ''} at <strong>{query}</strong>
-          </p>
-          <div className="grid sm:grid-cols-2 gap-4">
-            {contacts.map(contact => (
-              <ContactCard key={contact.id} contact={contact} />
-            ))}
-          </div>
+          {(() => {
+            const filtered = roleFilter.trim()
+              ? contacts.filter(c => c.title?.toLowerCase().includes(roleFilter.toLowerCase()))
+              : contacts
+            return (
+              <>
+                <p className="text-sm text-slate-500 mb-4">
+                  Found <strong>{filtered.length}</strong> contact{filtered.length !== 1 ? 's' : ''} at <strong>{query}</strong>
+                  {roleFilter && <> matching <strong>{roleFilter}</strong></>}
+                </p>
+                {filtered.length === 0 ? (
+                  <div className="text-center py-16 text-slate-400">
+                    <Search className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                    <p className="font-medium">No contacts match &quot;{roleFilter}&quot; at {query}</p>
+                    <p className="text-sm mt-1">Try a broader role keyword.</p>
+                  </div>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {filtered.map(contact => (
+                      <ContactCard key={contact.id} contact={contact} />
+                    ))}
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </div>
       )}
 

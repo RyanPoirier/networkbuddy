@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink } from 'lucide-react'
+import { Mail, CheckCircle, AlertCircle, Loader2, ExternalLink, Search } from 'lucide-react'
 import LinkedInIcon from '@/components/ui/LinkedInIcon'
 import { Contact } from '@/types'
 import OutreachModal from '@/components/outreach/OutreachModal'
@@ -10,6 +10,27 @@ export default function ContactCard({ contact }: { contact: Contact }) {
   const [showOutreach, setShowOutreach] = useState(false)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [email, setEmail] = useState(contact.email)
+  const [findingEmail, setFindingEmail] = useState(false)
+
+  async function handleFindEmail() {
+    setFindingEmail(true)
+    try {
+      const res = await fetch('/api/contacts/find-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contactId: contact.id,
+          fullName: contact.full_name,
+          domain: contact.domain,
+        }),
+      })
+      const data = await res.json()
+      if (data.email) setEmail(data.email)
+    } finally {
+      setFindingEmail(false)
+    }
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -43,16 +64,25 @@ export default function ContactCard({ contact }: { contact: Contact }) {
           </div>
         </div>
 
-        {contact.email && (
+        {email ? (
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <Mail className="w-3.5 h-3.5 flex-shrink-0 text-slate-400" />
-            <span className="truncate">{contact.email}</span>
+            <span className="truncate">{email}</span>
             {contact.email_verified ? (
               <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
             ) : (
               <AlertCircle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
             )}
           </div>
+        ) : (
+          <button
+            onClick={handleFindEmail}
+            disabled={findingEmail}
+            className="flex items-center gap-2 text-sm text-[#f97316] hover:text-orange-600 transition-colors disabled:opacity-50"
+          >
+            {findingEmail ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+            {findingEmail ? 'Finding email...' : 'Find Email'}
+          </button>
         )}
 
         {contact.linkedin_url && (

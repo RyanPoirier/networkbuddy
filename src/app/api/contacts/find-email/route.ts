@@ -12,25 +12,34 @@ export async function POST(request: NextRequest) {
   const hunterKey = process.env.HUNTER_API_KEY
   if (!hunterKey) return NextResponse.json({ error: 'no hunter key' }, { status: 500 })
 
-  const [firstName, ...rest] = fullName.trim().split(' ')
-  const lastName = rest.join(' ')
+  const firstName = fullName.trim().split(' ')[0].toLowerCase()
 
+  // Hunter domain search — returns emails + LinkedIn URLs for contacts at this domain
   const res = await fetch(
-    `https://api.hunter.io/v2/email-finder?domain=${encodeURIComponent(domain)}&first_name=${encodeURIComponent(firstName)}&last_name=${encodeURIComponent(lastName)}&api_key=${hunterKey}`
+    `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${hunterKey}&limit=100`
   )
 
-  if (!res.ok) return NextResponse.json({ email: null })
+  if (!res.ok) return NextResponse.json({ email: null, linkedin_url: null })
 
   const data = await res.json()
-  const email = data.data?.email ?? null
+  const hunterContacts: Array<{ first_name?: string; email?: string; linkedin?: string; confidence?: number }> = data.data?.emails ?? []
 
-  // Update contact in Supabase if we found an email
-  if (email && contactId) {
+  // Match by first name
+  const match = hunterContacts.find(c => (c.first_name ?? '').toLowerCase() === firstName)
+
+  const email = match?.email ?? null
+  const linkedin_url = match?.linkedin ?? null
+  const score = match?.confidence ?? 0
+
+  if (contactId && (email || linkedin_url)) {
     await supabase
       .from('contacts')
-      .update({ email, email_verified: (data.data?.score ?? 0) >= 90 })
+      .update({
+        ...(email ? { email, email_verified: score >= 90 } : {}),
+        ...(linkedin_url ? { linkedin_url } : {}),
+      })
       .eq('id', contactId)
   }
 
-  return NextResponse.json({ email, score: data.data?.score ?? 0 })
+  return NextResponse.json({ email, linkedin_url, score })
 }

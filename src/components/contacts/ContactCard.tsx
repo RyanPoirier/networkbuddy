@@ -11,6 +11,7 @@ export default function ContactCard({ contact }: { contact: Contact }) {
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [email, setEmail] = useState(contact.email)
+  const [linkedinUrl, setLinkedinUrl] = useState(contact.linkedin_url)
   const [findingEmail, setFindingEmail] = useState(false)
 
   async function handleFindEmail() {
@@ -27,6 +28,7 @@ export default function ContactCard({ contact }: { contact: Contact }) {
       })
       const data = await res.json()
       if (data.email) setEmail(data.email)
+      if (data.linkedin_url) setLinkedinUrl(data.linkedin_url)
     } finally {
       setFindingEmail(false)
     }
@@ -85,9 +87,9 @@ export default function ContactCard({ contact }: { contact: Contact }) {
           </button>
         )}
 
-        {contact.linkedin_url && (
+        {linkedinUrl && (
           <a
-            href={contact.linkedin_url}
+            href={linkedinUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"

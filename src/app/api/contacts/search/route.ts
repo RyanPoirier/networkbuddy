@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
   const hunterData = await domainRes.json()
   const emails = hunterData.data?.emails ?? []
   const hunterDomain = hunterData.data?.domain ?? ''
+  const hunterCompany = hunterData.data?.organization ?? company
 
   if (emails.length === 0) {
     return NextResponse.json({ contacts: [], source: 'hunter_empty', debug: hunterData })
@@ -57,7 +58,7 @@ export async function GET(request: NextRequest) {
   }) => ({
     full_name: `${e.first_name ?? ''} ${e.last_name ?? ''}`.trim(),
     title: e.position ?? '',
-    company,
+    company: hunterCompany,
     domain: hunterDomain,
     email: e.value ?? null,
     linkedin_url: e.linkedin ?? null,

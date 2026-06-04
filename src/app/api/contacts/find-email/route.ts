@@ -6,8 +6,23 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { contactId, fullName, domain } = await request.json()
-  if (!fullName || !domain) return NextResponse.json({ error: 'fullName and domain required' }, { status: 400 })
+  const { contactId, fullName, domain: rawDomain, company } = await request.json()
+  if (!fullName) return NextResponse.json({ error: 'fullName required' }, { status: 400 })
+
+  let domain = rawDomain
+
+  // If no domain, resolve it from company name via Hunter
+  if (!domain && company) {
+    const enrichRes = await fetch(
+      `https://api.hunter.io/v2/companies/find?name=${encodeURIComponent(company)}&api_key=${hunterKey}`
+    )
+    if (enrichRes.ok) {
+      const enrichData = await enrichRes.json()
+      domain = enrichData.data?.domain ?? ''
+    }
+  }
+
+  if (!domain) return NextResponse.json({ email: null, linkedin_url: null })
 
   const hunterKey = process.env.HUNTER_API_KEY
   if (!hunterKey) return NextResponse.json({ error: 'no hunter key' }, { status: 500 })

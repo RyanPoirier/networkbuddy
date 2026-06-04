@@ -24,6 +24,7 @@ export default function ContactCard({ contact }: { contact: Contact }) {
           contactId: contact.id,
           fullName: contact.full_name,
           domain: contact.domain,
+          company: contact.company,
         }),
       })
       const data = await res.json()

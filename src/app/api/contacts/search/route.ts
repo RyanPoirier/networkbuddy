@@ -64,5 +64,5 @@ export async function GET(request: NextRequest) {
     .insert(contacts)
     .select()
 
-  return NextResponse.json({ contacts: inserted ?? contacts, source: 'apollo', debug: { firstOrg: people[0]?.organization ?? null } })
+  return NextResponse.json({ contacts: inserted ?? contacts, source: 'apollo' })
 }

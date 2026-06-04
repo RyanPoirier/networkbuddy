@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const apolloKey = process.env.APOLLO_API_KEY
   if (!apolloKey) return NextResponse.json({ contacts: [], source: 'no_api_key' })
 
-  const apolloRes = await fetch('https://api.apollo.io/api/v1/mixed_people/search', {
+  const apolloRes = await fetch('https://api.apollo.io/api/v1/mixed_people/api_search', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

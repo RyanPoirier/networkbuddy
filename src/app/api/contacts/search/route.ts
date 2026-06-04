@@ -10,15 +10,17 @@ export async function GET(request: NextRequest) {
   if (!company) return NextResponse.json({ error: 'company required' }, { status: 400 })
   const department = request.nextUrl.searchParams.get('department') ?? ''
 
-  // Check cache first
-  const { data: cached } = await supabase
-    .from('contacts')
-    .select('*')
-    .ilike('company', company)
-    .order('created_at', { ascending: false })
+  // Check cache first (only when no department filter)
+  if (!department) {
+    const { data: cached } = await supabase
+      .from('contacts')
+      .select('*')
+      .ilike('company', company)
+      .order('created_at', { ascending: false })
 
-  if (cached && cached.length > 0) {
-    return NextResponse.json({ contacts: cached, source: 'cache' })
+    if (cached && cached.length > 0) {
+      return NextResponse.json({ contacts: cached, source: 'cache' })
+    }
   }
 
   // Call Hunter.io domain search

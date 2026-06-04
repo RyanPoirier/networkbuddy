@@ -62,7 +62,7 @@ function SearchContent() {
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="e.g. Shopify, Google, RBC..."
+            placeholder="e.g. Shopify, Google, RBC, stripe.com..."
             className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent bg-white text-[#0f1f3d]"
           />
         </div>

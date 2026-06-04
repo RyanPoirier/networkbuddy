@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
   const domain = company.replace(/^https?:\/\//i, '').replace(/\/.*$/, '').trim()
 
   const domainRes = await fetch(
-    `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=20&api_key=${hunterKey}`
+    `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=10&api_key=${hunterKey}`
   )
 
   if (!domainRes.ok) {

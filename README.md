@@ -1,8 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NetworkBuddy
 
-## Getting Started
+A student networking tool that helps university students get referrals at their target companies.
 
-First, run the development server:
+**Stack:** Next.js 16, Supabase (Auth + DB), Tailwind CSS, Anthropic Claude API, Hunter.io API, dnd-kit
+
+## Setup
+
+### 1. Install dependencies
+```bash
+npm install
+```
+
+### 2. Environment variables
+
+Fill in `.env.local`:
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+ANTHROPIC_API_KEY=
+HUNTER_API_KEY=
+NEXT_PUBLIC_SITE_URL=https://networkbuddy.ca
+```
+
+### 3. Supabase setup
+
+1. Create a project at [supabase.com](https://supabase.com)
+2. Run `supabase/schema.sql` in the SQL editor
+3. Enable Google OAuth under Authentication → Providers
+4. Add `https://networkbuddy.ca/auth/callback` to redirect URLs
+
+### 4. Run locally
 
 ```bash
 npm run dev

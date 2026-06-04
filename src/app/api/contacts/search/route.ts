@@ -48,7 +48,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ contacts: [], source: 'hunter_empty', debug: hunterData })
   }
 
-  const contacts = emails.map((e: {
+  const contacts = emails.filter((e: { first_name?: string; last_name?: string }) =>
+    (e.first_name ?? '').trim() || (e.last_name ?? '').trim()
+  ).map((e: {
     first_name?: string
     last_name?: string
     position?: string

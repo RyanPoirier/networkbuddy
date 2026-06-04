@@ -41,12 +41,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (!searchDomain) {
-    return NextResponse.json({ contacts: [], source: 'no_domain_found' })
-  }
+  // Fall back to company name search if enrichment didn't find a domain
+  const domainParam = searchDomain
+    ? `domain=${encodeURIComponent(searchDomain)}`
+    : `company=${encodeURIComponent(company)}`
 
   const domainRes = await fetch(
-    `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(searchDomain)}&limit=10&api_key=${hunterKey}`
+    `https://api.hunter.io/v2/domain-search?${domainParam}&limit=10&api_key=${hunterKey}`
   )
 
   if (!domainRes.ok) {

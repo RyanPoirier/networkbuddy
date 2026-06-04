@@ -12,10 +12,17 @@ function SearchContent() {
 
   const [query, setQuery] = useState(initialCompany)
   const [input, setInput] = useState(initialCompany)
-  const [contacts, setContacts] = useState<Contact[]>([])
+  const [roleInput, setRoleInput] = useState('')
+  const [allContacts, setAllContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
+
+  const contacts = roleInput.trim()
+    ? allContacts.filter(c =>
+        c.title?.toLowerCase().includes(roleInput.toLowerCase())
+      )
+    : allContacts
 
   useEffect(() => {
     if (initialCompany) {
@@ -34,7 +41,7 @@ function SearchContent() {
       const res = await fetch(`/api/contacts/search?company=${encodeURIComponent(q)}`)
       if (!res.ok) throw new Error('Search failed')
       const data = await res.json()
-      setContacts(data.contacts ?? [])
+      setAllContacts(data.contacts ?? [])
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Search failed')
     } finally {
@@ -55,15 +62,24 @@ function SearchContent() {
         <p className="text-slate-500 mt-1">Search a company to find people who can refer you.</p>
       </div>
 
-      <form onSubmit={onSubmit} className="flex gap-3 mb-8">
+      <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-3 mb-8">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="e.g. Shopify, Google, RBC, stripe.com..."
+            placeholder="Company — e.g. RBC, Google, Shopify"
             className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent bg-white text-[#0f1f3d]"
+          />
+        </div>
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            value={roleInput}
+            onChange={e => setRoleInput(e.target.value)}
+            placeholder="Filter by role — e.g. Investment Banking, Engineer"
+            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent bg-white text-[#0f1f3d]"
           />
         </div>
         <button

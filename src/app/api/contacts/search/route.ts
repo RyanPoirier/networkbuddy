@@ -54,10 +54,10 @@ export async function GET(request: NextRequest) {
     last_verified_at: new Date().toISOString(),
   }))
 
-  const { data: inserted } = await supabase
+  const { data: inserted, error: insertError } = await supabase
     .from('contacts')
     .insert(contacts)
     .select()
 
-  return NextResponse.json({ contacts: inserted ?? contacts, source: 'apollo' })
+  return NextResponse.json({ contacts: inserted ?? contacts, source: 'apollo', debug: { insertError, contactCount: contacts.length, apolloPeople: people.length } })
 }

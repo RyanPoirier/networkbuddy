@@ -29,13 +29,27 @@ export default function ContactCard({ contact }: { contact: Contact }) {
     .toUpperCase()
     .slice(0, 2)
 
+  const [imgFailed, setImgFailed] = useState(false)
+  const avatarUrl = contact.email && !imgFailed
+    ? `https://avatar.clearbit.com/${contact.email}`
+    : null
+
   return (
     <>
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col gap-4">
         <div className="flex items-start gap-3">
-          <div className="w-11 h-11 bg-[#0f1f3d] rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-            {initials || '?'}
-          </div>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={contact.full_name}
+              onError={() => setImgFailed(true)}
+              className="w-11 h-11 rounded-xl object-cover flex-shrink-0"
+            />
+          ) : (
+            <div className="w-11 h-11 bg-[#0f1f3d] rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              {initials || '?'}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <h3 className="font-semibold text-[#0f1f3d] truncate">{contact.full_name || 'Unknown'}</h3>
             <p className="text-sm text-slate-500 truncate">{contact.title || 'Title unknown'}</p>

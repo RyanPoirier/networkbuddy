@@ -21,8 +21,9 @@ export async function GET(request: NextRequest) {
     },
     body: JSON.stringify({
       q_organization_name: company,
+      ...(role ? { person_titles: [role] } : {}),
       page: 1,
-      per_page: 50,
+      per_page: 10,
     }),
   })
 

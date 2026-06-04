@@ -33,7 +33,7 @@ function SearchContent() {
     setError('')
     setSearched(true)
     try {
-      const res = await fetch(`/api/contacts/search?company=${encodeURIComponent(q)}`)
+      const res = await fetch(`/api/contacts/search?company=${encodeURIComponent(q)}${roleInput ? `&role=${encodeURIComponent(roleInput)}` : ''}`)
       if (!res.ok) throw new Error('Search failed')
       const data = await res.json()
       setContacts(data.contacts ?? [])
@@ -111,32 +111,15 @@ function SearchContent() {
 
       {!loading && contacts.length > 0 && (
         <div>
-          {(() => {
-            const filtered = roleFilter.trim()
-              ? contacts.filter(c => c.title?.toLowerCase().includes(roleFilter.toLowerCase()))
-              : contacts
-            return (
-              <>
-                <p className="text-sm text-slate-500 mb-4">
-                  Found <strong>{filtered.length}</strong> contact{filtered.length !== 1 ? 's' : ''} at <strong>{query}</strong>
-                  {roleFilter && <> matching <strong>{roleFilter}</strong></>}
-                </p>
-                {filtered.length === 0 ? (
-                  <div className="text-center py-16 text-slate-400">
-                    <Search className="w-10 h-10 mx-auto mb-3 opacity-40" />
-                    <p className="font-medium">No contacts match &quot;{roleFilter}&quot; at {query}</p>
-                    <p className="text-sm mt-1">Try a broader role keyword.</p>
-                  </div>
-                ) : (
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    {filtered.map(contact => (
-                      <ContactCard key={contact.id} contact={contact} />
-                    ))}
-                  </div>
-                )}
-              </>
-            )
-          })()}
+          <p className="text-sm text-slate-500 mb-4">
+            Found <strong>{contacts.length}</strong> contact{contacts.length !== 1 ? 's' : ''} at <strong>{query}</strong>
+            {roleFilter && <> matching <strong>{roleFilter}</strong></>}
+          </p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {contacts.map(contact => (
+              <ContactCard key={contact.id} contact={contact} />
+            ))}
+          </div>
         </div>
       )}
 

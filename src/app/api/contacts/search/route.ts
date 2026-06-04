@@ -24,9 +24,11 @@ export async function GET(request: NextRequest) {
   const hunterKey = process.env.HUNTER_API_KEY
   if (!hunterKey) return NextResponse.json({ contacts: [], source: 'no_api_key' })
 
-  // Derive domain from company name using Hunter company search
+  // Strip protocol if user pasted a full URL, then use as domain
+  const domain = company.replace(/^https?:\/\//i, '').replace(/\/.*$/, '').trim()
+
   const domainRes = await fetch(
-    `https://api.hunter.io/v2/domain-search?company=${encodeURIComponent(company)}&limit=20&api_key=${hunterKey}`
+    `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&limit=20&api_key=${hunterKey}`
   )
 
   if (!domainRes.ok) {

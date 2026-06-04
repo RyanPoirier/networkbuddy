@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
   )
 
   if (!domainRes.ok) {
-    return NextResponse.json({ contacts: [], source: 'hunter_error' })
+    const errText = await domainRes.text()
+    return NextResponse.json({ contacts: [], source: 'hunter_error', debug: errText }, { status: 200 })
   }
 
   const hunterData = await domainRes.json()
@@ -40,7 +41,7 @@ export async function GET(request: NextRequest) {
   const hunterDomain = hunterData.data?.domain ?? ''
 
   if (emails.length === 0) {
-    return NextResponse.json({ contacts: [], source: 'hunter_empty' })
+    return NextResponse.json({ contacts: [], source: 'hunter_empty', debug: hunterData })
   }
 
   const contacts = emails.map((e: {

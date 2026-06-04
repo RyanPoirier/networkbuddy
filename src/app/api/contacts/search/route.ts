@@ -24,14 +24,29 @@ export async function GET(request: NextRequest) {
   const hunterKey = process.env.HUNTER_API_KEY
   if (!hunterKey) return NextResponse.json({ contacts: [], source: 'no_api_key' })
 
-  // If input looks like a domain (contains a dot), use domain param, otherwise use company name
-  const looksLikeDomain = company.includes('.')
-  const searchParam = looksLikeDomain
-    ? `domain=${encodeURIComponent(company.replace(/^https?:\/\//i, '').replace(/\/.*$/, '').trim())}`
-    : `company=${encodeURIComponent(company)}`
+  // If input looks like a domain (contains a dot), use it directly
+  // Otherwise, use Hunter's company enrichment to find the real domain first
+  let searchDomain: string
+  if (company.includes('.')) {
+    searchDomain = company.replace(/^https?:\/\//i, '').replace(/\/.*$/, '').trim()
+  } else {
+    const enrichRes = await fetch(
+      `https://api.hunter.io/v2/companies/find?name=${encodeURIComponent(company)}&api_key=${hunterKey}`
+    )
+    if (enrichRes.ok) {
+      const enrichData = await enrichRes.json()
+      searchDomain = enrichData.data?.domain ?? ''
+    } else {
+      searchDomain = ''
+    }
+  }
+
+  if (!searchDomain) {
+    return NextResponse.json({ contacts: [], source: 'no_domain_found' })
+  }
 
   const domainRes = await fetch(
-    `https://api.hunter.io/v2/domain-search?${searchParam}&limit=10&api_key=${hunterKey}`
+    `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(searchDomain)}&limit=10&api_key=${hunterKey}`
   )
 
   if (!domainRes.ok) {

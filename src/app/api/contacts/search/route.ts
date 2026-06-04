@@ -59,5 +59,5 @@ export async function GET(request: NextRequest) {
     .insert(contacts)
     .select()
 
-  return NextResponse.json({ contacts: inserted ?? contacts, source: 'apollo', debug: { insertError, contactCount: contacts.length, apolloPeople: people.length } })
+  return NextResponse.json({ contacts: inserted ?? contacts, source: 'apollo', debug: { insertError, contactCount: contacts.length, apolloPeople: people.length, firstPerson: people[0] ?? null } })
 }

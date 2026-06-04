@@ -37,14 +37,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ contacts: [], source: 'apollo_empty' })
   }
 
-  const contacts = people.filter((p: { name?: string }) => (p.name ?? '').trim()).map((p: {
+  const contacts = people.filter((p: { first_name?: string }) => (p.first_name ?? '').trim()).map((p: {
+    first_name?: string
+    last_name?: string
+    last_name_obfuscated?: string
     name?: string
     title?: string
     organization?: { name?: string; primary_domain?: string }
     email?: string
     linkedin_url?: string
   }) => ({
-    full_name: p.name ?? '',
+    full_name: p.name ?? `${p.first_name ?? ''} ${p.last_name ?? p.last_name_obfuscated ?? ''}`.trim(),
     title: p.title ?? '',
     company: p.organization?.name ?? company,
     domain: p.organization?.primary_domain ?? '',
@@ -54,10 +57,10 @@ export async function GET(request: NextRequest) {
     last_verified_at: new Date().toISOString(),
   }))
 
-  const { data: inserted, error: insertError } = await supabase
+  const { data: inserted } = await supabase
     .from('contacts')
     .insert(contacts)
     .select()
 
-  return NextResponse.json({ contacts: inserted ?? contacts, source: 'apollo', debug: { insertError, contactCount: contacts.length, apolloPeople: people.length, firstPerson: people[0] ?? null } })
+  return NextResponse.json({ contacts: inserted ?? contacts, source: 'apollo' })
 }

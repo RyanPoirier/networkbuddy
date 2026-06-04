@@ -12,15 +12,10 @@ function SearchContent() {
 
   const [query, setQuery] = useState(initialCompany)
   const [input, setInput] = useState(initialCompany)
-  const [roleFilter, setRoleFilter] = useState('')
-  const [allContacts, setAllContacts] = useState<Contact[]>([])
+  const [contacts, setContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
-
-  const contacts = roleFilter.trim()
-    ? allContacts.filter(c => c.title?.toLowerCase().includes(roleFilter.toLowerCase()))
-    : allContacts
 
   useEffect(() => {
     if (initialCompany) {
@@ -39,7 +34,7 @@ function SearchContent() {
       const res = await fetch(`/api/contacts/search?company=${encodeURIComponent(q)}`)
       if (!res.ok) throw new Error('Search failed')
       const data = await res.json()
-      setAllContacts(data.contacts ?? [])
+      setContacts(data.contacts ?? [])
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Search failed')
     } finally {
@@ -60,24 +55,15 @@ function SearchContent() {
         <p className="text-slate-500 mt-1">Search a company to find people who can refer you.</p>
       </div>
 
-      <form onSubmit={onSubmit} className="flex flex-col sm:flex-row gap-3 mb-8">
+      <form onSubmit={onSubmit} className="flex gap-3 mb-8">
         <div className="flex-1 relative">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={input}
             onChange={e => setInput(e.target.value)}
-            placeholder="Company — e.g. RBC, Google, Shopify"
+            placeholder="e.g. Shopify, Google, RBC..."
             className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent bg-white text-[#0f1f3d]"
-          />
-        </div>
-        <div className="flex-1 relative">
-          <input
-            type="text"
-            value={roleFilter}
-            onChange={e => setRoleFilter(e.target.value)}
-            placeholder="Filter by role — e.g. Investment Banking"
-            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent bg-white text-[#0f1f3d]"
           />
         </div>
         <button
@@ -105,7 +91,7 @@ function SearchContent() {
         <div className="text-center py-16 text-slate-400">
           <Search className="w-10 h-10 mx-auto mb-3 opacity-40" />
           <p className="font-medium">No contacts found for &quot;{query}&quot;</p>
-          <p className="text-sm mt-1">Try a different company name or department.</p>
+          <p className="text-sm mt-1">Try a different company name or check the spelling.</p>
         </div>
       )}
 
@@ -113,7 +99,6 @@ function SearchContent() {
         <div>
           <p className="text-sm text-slate-500 mb-4">
             Found <strong>{contacts.length}</strong> contact{contacts.length !== 1 ? 's' : ''} at <strong>{query}</strong>
-            {roleFilter && <span className="text-slate-400"> matching &quot;{roleFilter}&quot;</span>}
           </p>
           <div className="grid sm:grid-cols-2 gap-4">
             {contacts.map(contact => (

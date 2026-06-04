@@ -6,6 +6,9 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const hunterKey = process.env.HUNTER_API_KEY
+  if (!hunterKey) return NextResponse.json({ error: 'no hunter key' }, { status: 500 })
+
   const { contactId, fullName, domain: rawDomain, company } = await request.json()
   if (!fullName) return NextResponse.json({ error: 'fullName required' }, { status: 400 })
 
@@ -23,9 +26,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (!domain) return NextResponse.json({ email: null, linkedin_url: null })
-
-  const hunterKey = process.env.HUNTER_API_KEY
-  if (!hunterKey) return NextResponse.json({ error: 'no hunter key' }, { status: 500 })
 
   const firstName = fullName.trim().split(' ')[0].toLowerCase()
 

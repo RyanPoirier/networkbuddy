@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
 
   const company = request.nextUrl.searchParams.get('company')
   if (!company) return NextResponse.json({ error: 'company required' }, { status: 400 })
+  const department = request.nextUrl.searchParams.get('department') ?? ''
 
   // Check cache first
   const { data: cached } = await supabase
@@ -46,8 +47,9 @@ export async function GET(request: NextRequest) {
     ? `domain=${encodeURIComponent(searchDomain)}`
     : `company=${encodeURIComponent(company)}`
 
+  const deptParam = department ? `&department=${encodeURIComponent(department)}` : ''
   const domainRes = await fetch(
-    `https://api.hunter.io/v2/domain-search?${domainParam}&limit=10&api_key=${hunterKey}`
+    `https://api.hunter.io/v2/domain-search?${domainParam}&limit=10${deptParam}&api_key=${hunterKey}`
   )
 
   if (!domainRes.ok) {

@@ -2,9 +2,22 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Search, Loader2 } from 'lucide-react'
+import { Search, Loader2, ChevronDown } from 'lucide-react'
 import ContactCard from '@/components/contacts/ContactCard'
 import { Contact } from '@/types'
+
+const DEPARTMENTS = [
+  { value: '', label: 'All roles' },
+  { value: 'executive', label: 'Executive / C-Suite' },
+  { value: 'management', label: 'Management / Director' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'engineering', label: 'Engineering' },
+  { value: 'sales', label: 'Sales' },
+  { value: 'marketing', label: 'Marketing' },
+  { value: 'hr', label: 'HR / Recruiting' },
+  { value: 'legal', label: 'Legal' },
+  { value: 'operations', label: 'Operations' },
+]
 
 function SearchContent() {
   const searchParams = useSearchParams()
@@ -12,33 +25,30 @@ function SearchContent() {
 
   const [query, setQuery] = useState(initialCompany)
   const [input, setInput] = useState(initialCompany)
-  const [roleInput, setRoleInput] = useState('')
+  const [department, setDepartment] = useState('')
   const [allContacts, setAllContacts] = useState<Contact[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
 
-  const contacts = roleInput.trim()
-    ? allContacts.filter(c =>
-        c.title?.toLowerCase().includes(roleInput.toLowerCase())
-      )
-    : allContacts
-
   useEffect(() => {
     if (initialCompany) {
-      handleSearch(initialCompany)
+      handleSearch(initialCompany, '')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function handleSearch(company?: string) {
+  async function handleSearch(company?: string, dept?: string) {
     const q = company ?? query
+    const d = dept ?? department
     if (!q.trim()) return
     setLoading(true)
     setError('')
     setSearched(true)
     try {
-      const res = await fetch(`/api/contacts/search?company=${encodeURIComponent(q)}`)
+      const params = new URLSearchParams({ company: q })
+      if (d) params.set('department', d)
+      const res = await fetch(`/api/contacts/search?${params}`)
       if (!res.ok) throw new Error('Search failed')
       const data = await res.json()
       setAllContacts(data.contacts ?? [])
@@ -52,7 +62,12 @@ function SearchContent() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setQuery(input)
-    handleSearch(input)
+    handleSearch(input, department)
+  }
+
+  function onDepartmentChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setDepartment(e.target.value)
+    if (searched) handleSearch(query, e.target.value)
   }
 
   return (
@@ -73,14 +88,17 @@ function SearchContent() {
             className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent bg-white text-[#0f1f3d]"
           />
         </div>
-        <div className="flex-1 relative">
-          <input
-            type="text"
-            value={roleInput}
-            onChange={e => setRoleInput(e.target.value)}
-            placeholder="Filter by role — e.g. Investment Banking, Engineer"
-            className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent bg-white text-[#0f1f3d]"
-          />
+        <div className="relative">
+          <select
+            value={department}
+            onChange={onDepartmentChange}
+            className="appearance-none pl-4 pr-10 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent bg-white text-[#0f1f3d] cursor-pointer"
+          >
+            {DEPARTMENTS.map(d => (
+              <option key={d.value} value={d.value}>{d.label}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
         </div>
         <button
           type="submit"
@@ -103,21 +121,21 @@ function SearchContent() {
         </div>
       )}
 
-      {!loading && searched && contacts.length === 0 && (
+      {!loading && searched && allContacts.length === 0 && (
         <div className="text-center py-16 text-slate-400">
           <Search className="w-10 h-10 mx-auto mb-3 opacity-40" />
           <p className="font-medium">No contacts found for &quot;{query}&quot;</p>
-          <p className="text-sm mt-1">Try a different company name or check the spelling.</p>
+          <p className="text-sm mt-1">Try a different company name or department.</p>
         </div>
       )}
 
-      {!loading && contacts.length > 0 && (
+      {!loading && allContacts.length > 0 && (
         <div>
           <p className="text-sm text-slate-500 mb-4">
-            Found <strong>{contacts.length}</strong> contact{contacts.length !== 1 ? 's' : ''} at <strong>{query}</strong>
+            Found <strong>{allContacts.length}</strong> contact{allContacts.length !== 1 ? 's' : ''} at <strong>{query}</strong>
           </p>
           <div className="grid sm:grid-cols-2 gap-4">
-            {contacts.map(contact => (
+            {allContacts.map(contact => (
               <ContactCard key={contact.id} contact={contact} />
             ))}
           </div>

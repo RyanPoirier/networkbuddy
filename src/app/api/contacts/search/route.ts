@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
 
   const company = request.nextUrl.searchParams.get('company')
   if (!company) return NextResponse.json({ error: 'company required' }, { status: 400 })
+  const role = request.nextUrl.searchParams.get('role') ?? ''
 
   const apolloKey = process.env.APOLLO_API_KEY
   if (!apolloKey) return NextResponse.json({ contacts: [], source: 'no_api_key' })
@@ -20,6 +21,7 @@ export async function GET(request: NextRequest) {
     },
     body: JSON.stringify({
       q_organization_name: company,
+      ...(role ? { q_titles: [role] } : {}),
       page: 1,
       per_page: 10,
     }),

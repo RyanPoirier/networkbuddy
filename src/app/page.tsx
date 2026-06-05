@@ -46,11 +46,37 @@ export default function ComingSoonPage() {
           </span>
         </div>
 
-        <h1 className="text-5xl sm:text-7xl font-extrabold leading-[1.05] tracking-tight mb-6">
-          Network<br />
+        <h1 className="text-4xl sm:text-6xl font-extrabold leading-[1.05] tracking-tight mb-6 flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+          <span>Network</span>
           <span className="bg-gradient-to-r from-[#ff6b35] to-[#ffa07a] bg-clip-text text-transparent">
             Buddy.
           </span>
+          <svg
+            viewBox="0 0 100 100"
+            className="w-14 h-14 sm:w-20 sm:h-20 flex-shrink-0"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <defs>
+              <linearGradient id="mascotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#ff6b35" />
+                <stop offset="100%" stopColor="#ffa07a" />
+              </linearGradient>
+            </defs>
+            <line x1="50" y1="6" x2="50" y2="18" stroke="url(#mascotGrad)" strokeWidth="3" strokeLinecap="round" />
+            <circle cx="50" cy="6" r="4" fill="url(#mascotGrad)" />
+            <rect x="14" y="22" width="72" height="62" rx="14" fill="url(#mascotGrad)" />
+            <rect x="22" y="36" width="56" height="32" rx="6" fill="#0a0a0a" />
+            <circle cx="38" cy="52" r="5" fill="#ff6b35">
+              <animate attributeName="r" values="5;5;1;5;5" dur="4s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="62" cy="52" r="5" fill="#ff6b35">
+              <animate attributeName="r" values="5;5;1;5;5" dur="4s" repeatCount="indefinite" />
+            </circle>
+            <circle cx="36" cy="50" r="1.5" fill="white" />
+            <circle cx="60" cy="50" r="1.5" fill="white" />
+            <path d="M 38 78 L 38 90 L 30 92" stroke="url(#mascotGrad)" strokeWidth="4" strokeLinecap="round" fill="none" />
+            <path d="M 62 78 L 62 90 L 70 92" stroke="url(#mascotGrad)" strokeWidth="4" strokeLinecap="round" fill="none" />
+          </svg>
         </h1>
 
         <p className="text-lg text-neutral-400 leading-relaxed mb-12 max-w-md mx-auto">

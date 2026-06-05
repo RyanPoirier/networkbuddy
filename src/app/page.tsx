@@ -30,7 +30,14 @@ export default function ComingSoonPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f1ecd5] text-[#2a1810] relative overflow-hidden flex flex-col items-center justify-center px-6">
+    <div
+      className="min-h-screen text-[#2a1810] relative overflow-hidden flex flex-col items-center justify-center px-6"
+      style={{
+        backgroundColor: '#f1ecd5',
+        backgroundImage: 'url(/texture.png)',
+        backgroundRepeat: 'repeat',
+      }}
+    >
       <div className="relative max-w-xl w-full text-center">
         <div className="inline-flex items-center gap-2 mb-12">
           <div className="w-2 h-2 rounded-full bg-[#c14a1a] animate-pulse" />

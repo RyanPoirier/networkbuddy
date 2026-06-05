@@ -1,80 +1,78 @@
-import Link from "next/link"
-import { Users, MessageSquare, TrendingUp, ArrowRight } from "lucide-react"
+'use client'
 
-export default function LandingPage() {
+import { useState } from 'react'
+
+export default function ComingSoonPage() {
+  const [email, setEmail] = useState('')
+  const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email.trim()) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!res.ok) throw new Error('Something went wrong')
+      setSubmitted(true)
+    } catch {
+      setError('Something went wrong. Try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-white">
-      <nav className="flex items-center justify-between px-6 py-4 max-w-6xl mx-auto">
-        <span className="text-2xl font-bold text-[#0f1f3d]">
-          Network<span className="text-[#f97316]">Buddy</span>
-        </span>
-        <div className="flex items-center gap-4">
-          <Link href="/auth/login" className="text-[#0f1f3d] hover:text-[#f97316] font-medium transition-colors">
-            Log in
-          </Link>
-          <Link href="/auth/signup" className="bg-[#f97316] hover:bg-[#ea6c0a] text-white font-semibold px-5 py-2 rounded-lg transition-colors">
-            Get started
-          </Link>
+    <div className="min-h-screen bg-[#0f1f3d] flex flex-col items-center justify-center px-6 text-center">
+      <div className="max-w-lg w-full">
+        <div className="mb-8">
+          <span className="text-4xl font-extrabold text-white">
+            Network<span className="text-[#f97316]"> Buddy</span>
+          </span>
         </div>
-      </nav>
 
-      <section className="max-w-6xl mx-auto px-6 pt-20 pb-24 text-center">
-        <div className="inline-flex items-center gap-2 bg-orange-50 text-[#f97316] text-sm font-medium px-4 py-1.5 rounded-full mb-6">
-          Built for university students
-        </div>
-        <h1 className="text-5xl sm:text-6xl font-extrabold text-[#0f1f3d] leading-tight mb-6">
-          Land referrals at your<br />
-          <span className="text-[#f97316]">dream companies</span>
+        <h1 className="text-4xl sm:text-5xl font-extrabold text-white leading-tight mb-4">
+          Something big<br />is coming.
         </h1>
-        <p className="text-xl text-slate-500 max-w-2xl mx-auto mb-10">
-          NetworkBuddy finds real contacts at your target companies, generates personalized outreach messages, and helps you track every conversation — all in one place.
+        <p className="text-slate-400 text-lg mb-10">
+          Land referrals at your dream companies. We&apos;re putting the finishing touches on Network Buddy — be the first to know when we launch.
         </p>
-        <Link href="/auth/signup" className="inline-flex items-center gap-2 bg-[#0f1f3d] hover:bg-[#1a3560] text-white font-semibold px-8 py-3.5 rounded-xl text-lg transition-colors">
-          Start for free <ArrowRight className="w-5 h-5" />
-        </Link>
-      </section>
 
-      <section className="bg-slate-50 py-20">
-        <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-3xl font-bold text-center text-[#0f1f3d] mb-14">Everything you need to network smarter</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              {
-                icon: <Users className="w-7 h-7 text-[#f97316]" />,
-                title: "Find Contacts",
-                desc: "Search any company and instantly find verified email addresses and LinkedIn profiles of people who can refer you.",
-              },
-              {
-                icon: <MessageSquare className="w-7 h-7 text-[#f97316]" />,
-                title: "Personalized Outreach",
-                desc: "AI generates a tailored email and LinkedIn message for every contact, based on your background and their role.",
-              },
-              {
-                icon: <TrendingUp className="w-7 h-7 text-[#f97316]" />,
-                title: "Track Your Pipeline",
-                desc: "Kanban board to move contacts from Saved to Referral Received. Never let a follow-up slip through the cracks.",
-              },
-            ].map((f) => (
-              <div key={f.title} className="bg-white rounded-2xl p-8 shadow-sm border border-slate-100">
-                <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center mb-5">{f.icon}</div>
-                <h3 className="text-xl font-bold text-[#0f1f3d] mb-2">{f.title}</h3>
-                <p className="text-slate-500 leading-relaxed">{f.desc}</p>
-              </div>
-            ))}
+        {submitted ? (
+          <div className="bg-orange-500/10 border border-orange-500/30 rounded-2xl px-6 py-5 text-[#f97316] font-medium text-lg">
+            You&apos;re on the list! We&apos;ll let you know when we launch.
           </div>
-        </div>
-      </section>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="Enter your email"
+              required
+              className="flex-1 px-5 py-3.5 rounded-xl bg-white/10 border border-white/20 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="bg-[#f97316] hover:bg-[#ea6c0a] disabled:opacity-50 text-white font-semibold px-6 py-3.5 rounded-xl transition-colors whitespace-nowrap"
+            >
+              {loading ? 'Joining...' : 'Notify me'}
+            </button>
+          </form>
+        )}
 
-      <section className="bg-[#0f1f3d] py-20 text-center">
-        <h2 className="text-3xl font-bold text-white mb-4">Ready to land your next referral?</h2>
-        <p className="text-slate-400 mb-8 text-lg">Free to use. No credit card required.</p>
-        <Link href="/auth/signup" className="inline-flex items-center gap-2 bg-[#f97316] hover:bg-[#ea6c0a] text-white font-semibold px-8 py-3.5 rounded-xl text-lg transition-colors">
-          Create your account <ArrowRight className="w-5 h-5" />
-        </Link>
-      </section>
+        {error && <p className="text-red-400 text-sm mt-3">{error}</p>}
+      </div>
 
-      <footer className="py-8 text-center text-slate-400 text-sm">
-        © {new Date().getFullYear()} NetworkBuddy
+      <footer className="absolute bottom-6 text-slate-600 text-sm">
+        © {new Date().getFullYear()} Network Buddy
       </footer>
     </div>
   )

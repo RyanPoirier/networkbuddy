@@ -51,7 +51,7 @@ export default function ComingSoonPage() {
             className="w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0 object-contain"
           />
           <p className="text-lg text-[#5c3a20] leading-relaxed text-left">
-            Land referrals at your dream companies. We&apos;re building something special — be the first to know when we launch.
+            Discover the right people, send messages that actually get replies, and track your network — all in one place.
           </p>
         </div>
 

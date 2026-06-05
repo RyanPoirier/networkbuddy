@@ -52,30 +52,57 @@ export default function ComingSoonPage() {
             Buddy.
           </span>
           <svg
-            viewBox="0 0 100 100"
-            className="w-14 h-14 sm:w-20 sm:h-20 flex-shrink-0"
+            viewBox="0 0 120 120"
+            className="w-16 h-16 sm:w-24 sm:h-24 flex-shrink-0"
             xmlns="http://www.w3.org/2000/svg"
           >
-            <defs>
-              <linearGradient id="mascotGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#ff6b35" />
-                <stop offset="100%" stopColor="#ffa07a" />
-              </linearGradient>
-            </defs>
-            <line x1="50" y1="6" x2="50" y2="18" stroke="url(#mascotGrad)" strokeWidth="3" strokeLinecap="round" />
-            <circle cx="50" cy="6" r="4" fill="url(#mascotGrad)" />
-            <rect x="14" y="22" width="72" height="62" rx="14" fill="url(#mascotGrad)" />
-            <rect x="22" y="36" width="56" height="32" rx="6" fill="#0a0a0a" />
-            <circle cx="38" cy="52" r="5" fill="#ff6b35">
-              <animate attributeName="r" values="5;5;1;5;5" dur="4s" repeatCount="indefinite" />
+            {/* legs */}
+            <path d="M 45 96 L 42 110" stroke="#1a1a1a" strokeWidth="4" strokeLinecap="round" />
+            <path d="M 75 96 L 78 110" stroke="#1a1a1a" strokeWidth="4" strokeLinecap="round" />
+            {/* shoes */}
+            <ellipse cx="38" cy="112" rx="8" ry="4" fill="#d4843a" />
+            <ellipse cx="82" cy="112" rx="8" ry="4" fill="#d4843a" />
+            {/* handle */}
+            <path d="M 48 30 Q 60 14 72 30" stroke="#1a1a1a" strokeWidth="4" fill="none" strokeLinecap="round" />
+            {/* briefcase body */}
+            <rect x="22" y="30" width="76" height="66" rx="8" fill="#ff6b35" />
+            {/* highlight stripe */}
+            <rect x="22" y="30" width="76" height="6" rx="3" fill="#ffa07a" opacity="0.6" />
+            {/* divider line */}
+            <line x1="22" y1="58" x2="98" y2="58" stroke="#d4843a" strokeWidth="1.5" />
+            {/* clasps */}
+            <rect x="36" y="52" width="10" height="6" rx="1.5" fill="#fde68a" />
+            <rect x="74" y="52" width="10" height="6" rx="1.5" fill="#fde68a" />
+            {/* face — eyes */}
+            <ellipse cx="48" cy="74" rx="3" ry="4" fill="#1a1a1a" />
+            <ellipse cx="72" cy="74" rx="3" ry="4" fill="#1a1a1a" />
+            {/* cheek blush */}
+            <circle cx="40" cy="82" r="3" fill="#ff4d1a" opacity="0.5" />
+            <circle cx="80" cy="82" r="3" fill="#ff4d1a" opacity="0.5" />
+            {/* smile */}
+            <path d="M 50 82 Q 60 90 70 82" stroke="#1a1a1a" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+            {/* left arm (down) */}
+            <path d="M 22 64 Q 14 72 16 84" stroke="#1a1a1a" strokeWidth="4" fill="none" strokeLinecap="round" />
+            <circle cx="16" cy="86" r="4" fill="#fde68a" stroke="#1a1a1a" strokeWidth="1.5" />
+            {/* right arm (waving) */}
+            <path d="M 98 64 Q 110 56 108 42" stroke="#1a1a1a" strokeWidth="4" fill="none" strokeLinecap="round">
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                values="-6 98 64; 6 98 64; -6 98 64"
+                dur="1.8s"
+                repeatCount="indefinite"
+              />
+            </path>
+            <circle cx="108" cy="40" r="4" fill="#fde68a" stroke="#1a1a1a" strokeWidth="1.5">
+              <animateTransform
+                attributeName="transform"
+                type="rotate"
+                values="-6 98 64; 6 98 64; -6 98 64"
+                dur="1.8s"
+                repeatCount="indefinite"
+              />
             </circle>
-            <circle cx="62" cy="52" r="5" fill="#ff6b35">
-              <animate attributeName="r" values="5;5;1;5;5" dur="4s" repeatCount="indefinite" />
-            </circle>
-            <circle cx="36" cy="50" r="1.5" fill="white" />
-            <circle cx="60" cy="50" r="1.5" fill="white" />
-            <path d="M 38 78 L 38 90 L 30 92" stroke="url(#mascotGrad)" strokeWidth="4" strokeLinecap="round" fill="none" />
-            <path d="M 62 78 L 62 90 L 70 92" stroke="url(#mascotGrad)" strokeWidth="4" strokeLinecap="round" fill="none" />
           </svg>
         </h1>
 

@@ -30,14 +30,14 @@ export default function ComingSoonPage() {
   }
 
   return (
-    <div
-      className="min-h-screen text-[#2a1810] relative overflow-hidden flex flex-col items-center justify-center px-6"
-      style={{
-        backgroundColor: '#f1ecd5',
-        backgroundImage: 'url(/texture.png)',
-        backgroundRepeat: 'repeat',
-      }}
-    >
+    <div className="min-h-screen text-[#2a1810] relative overflow-hidden flex flex-col items-center justify-center px-6 bg-[#f1ecd5]">
+      {/* subtle grain overlay to match mascot background compression noise */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-[0.18] mix-blend-multiply"
+        style={{
+          backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.2 0 0 0 0 0.15 0 0 0 0 0.05 0 0 0 0.6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")`,
+        }}
+      />
       <div className="relative max-w-xl w-full text-center">
         <div className="inline-flex items-center gap-2 mb-12">
           <div className="w-2 h-2 rounded-full bg-[#c14a1a] animate-pulse" />

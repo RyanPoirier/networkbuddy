@@ -57,7 +57,7 @@ export default function ComingSoonPage() {
 
         {submitted ? (
           <div className="bg-white/40 border border-[#c14a1a]/20 backdrop-blur-sm rounded-2xl px-6 py-5 text-[#2a1810] font-medium">
-            <span className="text-[#c14a1a]">✓</span> You&apos;re on the list. We&apos;ll be in touch.
+            <span className="text-[#c14a1a] mr-2">✓</span>You&apos;re on the list. We&apos;ll be in touch.
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 p-1.5 bg-white/40 border border-[#2a1810]/15 backdrop-blur-sm rounded-2xl">

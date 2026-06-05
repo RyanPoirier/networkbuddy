@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
   const { error } = await supabase.from('waitlist').insert({ email })
 
   if (error && error.code !== '23505') {
-    return NextResponse.json({ error: 'Failed to save' }, { status: 500 })
+    return NextResponse.json({ error: error.message, code: error.code, details: error.details }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true })

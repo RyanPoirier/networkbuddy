@@ -30,33 +30,33 @@ export default function ComingSoonPage() {
   }
 
   return (
-    <div className="min-h-screen text-[#2a1810] relative overflow-hidden flex flex-col items-center justify-center px-6 bg-[#f1ecd5]">
+    <div className="min-h-screen text-[#2a1810] relative overflow-hidden flex flex-col items-center justify-center px-5 sm:px-6 py-20 bg-[#f1ecd5]">
       <div className="relative max-w-xl w-full text-center">
-        <div className="inline-flex items-center gap-2 mb-12">
+        <div className="inline-flex items-center gap-2 mb-8 sm:mb-12">
           <div className="w-2 h-2 rounded-full bg-[#c14a1a] animate-pulse" />
-          <span className="text-xs uppercase tracking-[0.2em] text-[#7a4a20] font-semibold">
+          <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-[#7a4a20] font-semibold">
             Coming Soon
           </span>
         </div>
 
-        <h1 className="text-4xl sm:text-6xl font-extrabold leading-[1.05] tracking-tight mb-6 flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
+        <h1 className="text-5xl sm:text-6xl font-extrabold leading-[1.05] tracking-tight mb-6 sm:mb-6 flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
           <span>Network</span>
           <span className="text-[#c14a1a]">Buddy</span>
         </h1>
 
-        <div className="flex items-center justify-center gap-4 mb-12 max-w-xl mx-auto">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-8 sm:mb-12 max-w-xl mx-auto">
           <img
             src="/mascot.gif"
             alt="Network Buddy mascot"
-            className="w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0 object-contain"
+            className="w-28 h-28 sm:w-32 sm:h-32 flex-shrink-0 object-contain"
           />
-          <p className="text-lg text-[#5c3a20] leading-relaxed text-left mt-[10px]">
+          <p className="text-base sm:text-lg text-[#5c3a20] leading-relaxed text-center sm:text-left sm:mt-[10px]">
             Discover the right people, send messages that actually get replies, and track your network — all in one place.
           </p>
         </div>
 
         {submitted ? (
-          <div className="bg-white/40 border border-[#c14a1a]/20 backdrop-blur-sm rounded-2xl px-6 py-5 text-[#2a1810] font-medium">
+          <div className="bg-white/40 border border-[#c14a1a]/20 backdrop-blur-sm rounded-2xl px-5 sm:px-6 py-5 text-[#2a1810] font-medium text-sm sm:text-base">
             <span className="text-[#c14a1a] mr-2">✓</span>You&apos;re on the list. We&apos;ll be in touch.
           </div>
         ) : (
@@ -67,12 +67,12 @@ export default function ComingSoonPage() {
               onChange={e => setEmail(e.target.value)}
               placeholder="your@email.com"
               required
-              className="flex-1 bg-transparent px-4 py-3 text-[#2a1810] placeholder:text-[#7a4a20]/60 focus:outline-none"
+              className="flex-1 bg-transparent px-4 py-3 text-base text-[#2a1810] placeholder:text-[#7a4a20]/60 focus:outline-none min-w-0"
             />
             <button
               type="submit"
               disabled={loading}
-              className="bg-[#c14a1a] hover:bg-[#a83d12] text-white disabled:opacity-50 font-semibold px-5 py-3 rounded-xl transition-all flex items-center justify-center gap-2 group"
+              className="bg-[#c14a1a] hover:bg-[#a83d12] text-white disabled:opacity-50 font-semibold px-5 py-3 rounded-xl transition-all flex items-center justify-center gap-2 group whitespace-nowrap"
             >
               {loading ? 'Joining' : 'Notify me'}
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
@@ -83,7 +83,7 @@ export default function ComingSoonPage() {
         {error && <p className="text-red-700 text-sm mt-3">{error}</p>}
       </div>
 
-      <footer className="absolute bottom-8 text-[#7a4a20]/70 text-xs tracking-wider uppercase font-medium">
+      <footer className="absolute bottom-5 sm:bottom-8 text-[#7a4a20]/70 text-[10px] sm:text-xs tracking-wider uppercase font-medium">
         © {new Date().getFullYear()} Network Buddy
       </footer>
     </div>

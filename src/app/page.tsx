@@ -136,29 +136,14 @@ export default function ComingSoonPage() {
               <rect x="82" y="59" width="14" height="8" rx="2" fill="url(#claspGrad)" />
               <circle cx="89" cy="63" r="1.2" fill="#5a3a10" />
 
-              {/* cheeks */}
-              <circle cx="44" cy="92" r="6" fill="url(#cheekGrad)" />
-              <circle cx="96" cy="92" r="6" fill="url(#cheekGrad)" />
-
-              {/* eyes — blinking */}
-              <g>
-                <ellipse cx="55" cy="85" rx="3.5" ry="4.5" fill="#1a1208">
-                  <animate attributeName="ry" values="4.5;4.5;4.5;0.3;4.5;4.5" dur="4s" repeatCount="indefinite" />
-                </ellipse>
-                <circle cx="56" cy="84" r="1.3" fill="white">
-                  <animate attributeName="r" values="1.3;1.3;1.3;0;1.3;1.3" dur="4s" repeatCount="indefinite" />
-                </circle>
-                <ellipse cx="85" cy="85" rx="3.5" ry="4.5" fill="#1a1208">
-                  <animate attributeName="ry" values="4.5;4.5;4.5;0.3;4.5;4.5" dur="4s" repeatCount="indefinite" />
-                </ellipse>
-                <circle cx="86" cy="84" r="1.3" fill="white">
-                  <animate attributeName="r" values="1.3;1.3;1.3;0;1.3;1.3" dur="4s" repeatCount="indefinite" />
-                </circle>
-              </g>
+              {/* eyes */}
+              <ellipse cx="55" cy="85" rx="3.5" ry="4.5" fill="#1a1208" />
+              <circle cx="56" cy="84" r="1.3" fill="white" />
+              <ellipse cx="85" cy="85" rx="3.5" ry="4.5" fill="#1a1208" />
+              <circle cx="86" cy="84" r="1.3" fill="white" />
 
               {/* smile */}
               <path d="M 58 95 Q 70 105 82 95" stroke="#1a1208" strokeWidth="3" fill="none" strokeLinecap="round" />
-              <path d="M 60 96 Q 70 103 80 96" fill="#7a1810" opacity="0.6" />
 
               {/* left arm */}
               <path d="M 25 76 Q 14 86 18 100" stroke="#2a1810" strokeWidth="5" fill="none" strokeLinecap="round" />
@@ -175,8 +160,6 @@ export default function ComingSoonPage() {
                 />
                 <path d="M 111 76 Q 124 60 122 42" stroke="#2a1810" strokeWidth="5" fill="none" strokeLinecap="round" />
                 <circle cx="122" cy="40" r="5.5" fill="url(#handGrad)" stroke="#2a1810" strokeWidth="1.8" />
-                {/* thumb on hand */}
-                <ellipse cx="125" cy="36" rx="1.5" ry="2.2" fill="url(#handGrad)" stroke="#2a1810" strokeWidth="1" />
               </g>
 
               {/* sparkles around him */}

@@ -41,17 +41,19 @@ export default function ComingSoonPage() {
 
         <h1 className="text-4xl sm:text-6xl font-extrabold leading-[1.05] tracking-tight mb-6 flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
           <span>Network</span>
-          <span className="text-[#c14a1a]">Buddy.</span>
+          <span className="text-[#c14a1a]">Buddy</span>
+        </h1>
+
+        <div className="flex items-center justify-center gap-4 mb-12 max-w-xl mx-auto">
           <img
             src="/mascot.gif"
             alt="Network Buddy mascot"
-            className="w-20 h-20 sm:w-28 sm:h-28 flex-shrink-0 object-contain"
+            className="w-24 h-24 sm:w-32 sm:h-32 flex-shrink-0 object-contain"
           />
-        </h1>
-
-        <p className="text-lg text-[#5c3a20] leading-relaxed mb-12 max-w-md mx-auto">
-          Land referrals at your dream companies. We&apos;re building something special — be the first to know when we launch.
-        </p>
+          <p className="text-lg text-[#5c3a20] leading-relaxed text-left">
+            Land referrals at your dream companies. We&apos;re building something special — be the first to know when we launch.
+          </p>
+        </div>
 
         {submitted ? (
           <div className="bg-white/40 border border-[#c14a1a]/20 backdrop-blur-sm rounded-2xl px-6 py-5 text-[#2a1810] font-medium">

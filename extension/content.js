@@ -17,42 +17,69 @@ function meta(prop) {
   return el ? clean(el.getAttribute('content')) : ''
 }
 
-function getName() {
-  // Strategy 1: the main top-card h1 (most reliable, most specific first)
+// Find the top-card h1 element (the person's name). Returns the element so we
+// can anchor other fields to the same card.
+function getNameEl() {
   const h1s = Array.from(document.querySelectorAll('main h1, h1'))
   for (const h of h1s) {
     const t = clean(h.textContent)
-    if (t && t.length < 80 && !/linkedin/i.test(t)) return t
+    if (t && t.length < 80 && !/linkedin/i.test(t)) return h
   }
-  // Strategy 2: og:title meta, usually "Name - Company | LinkedIn"
+  return null
+}
+
+function getName(nameEl) {
+  if (nameEl) return clean(nameEl.textContent)
   const og = meta('og:title')
   if (og) return clean(og.split(/[-|]/)[0])
-  // Strategy 3: document.title, e.g. "(3) Name | LinkedIn"
   const dt = clean(document.title.replace(/^\(\d+\)\s*/, '').split('|')[0])
   if (dt && !/linkedin/i.test(dt)) return dt
   return ''
 }
 
-function getHeadline(name) {
-  // The headline sits right under the name in the top card.
-  const candidates = Array.from(
-    document.querySelectorAll('.text-body-medium, [data-generated-suggestion-target]')
-  )
-  for (const el of candidates) {
-    const t = clean(el.textContent)
-    if (t && t !== name && t.length > 5 && t.length < 220) return t
+// The top-card container that holds name + headline + location.
+function getTopCard(nameEl) {
+  if (!nameEl) return null
+  // Walk up a few levels to the card that also contains the headline.
+  let el = nameEl
+  for (let i = 0; i < 5 && el.parentElement; i++) {
+    el = el.parentElement
+    if (el.querySelector('.text-body-medium')) return el
   }
-  // Fallback: og:description often holds "Headline · Location · 500+ connections"
+  return nameEl.closest('section') || document
+}
+
+function getHeadline(nameEl, name) {
+  // 1. Anchored: the headline lives in the same top card as the name.
+  const card = getTopCard(nameEl)
+  if (card) {
+    const el = card.querySelector('.text-body-medium')
+    const t = el && clean(el.textContent)
+    if (t && t !== name && t.length > 3 && t.length < 220) return t
+  }
+  // 2. og:description, often "Headline · Location · 500+ connections"
   const desc = meta('og:description')
-  if (desc) return clean(desc.split('·')[0])
+  if (desc && !/^\d/.test(desc)) {
+    const first = clean(desc.split('·')[0])
+    if (first.length > 3) return first
+  }
+  // 3. og:title "Name - Headline/Company | LinkedIn"
+  const og = meta('og:title')
+  if (og.includes(' - ')) {
+    const mid = clean(og.split('|')[0].split(' - ').slice(1).join(' - '))
+    if (mid.length > 3) return mid
+  }
   return ''
 }
 
-function getCompany() {
-  // Top-card current-company button
+function getCompany(headline) {
+  // 1. Top-card current-company button
   const btn = document.querySelector('button[aria-label^="Current company"]')
   if (btn) return clean(btn.getAttribute('aria-label').replace(/^Current company:?\s*/i, ''))
-  // Experience section: first company link/name
+  // 2. Parse "... at Company" out of the headline
+  const atMatch = headline && headline.match(/\bat\s+([^|·]+)$/i)
+  if (atMatch) return clean(atMatch[1])
+  // 3. Experience section: first company name
   const exp = document.querySelector('#experience')
   if (exp) {
     const section = exp.closest('section')
@@ -72,11 +99,13 @@ function getAbout() {
 }
 
 function scrapeProfile() {
-  const name = getName()
+  const nameEl = getNameEl()
+  const name = getName(nameEl)
+  const headline = getHeadline(nameEl, name)
   return {
     name,
-    headline: getHeadline(name),
-    company: getCompany(),
+    headline,
+    company: getCompany(headline),
     about: getAbout(),
     profileUrl: location.href.split('?')[0],
   }

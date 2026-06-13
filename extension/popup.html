@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root {
+      --cream: #f1ecd5;
+      --ink: #2a1810;
+      --brown: #5c3a20;
+      --orange: #c14a1a;
+      --orange-hover: #a83d12;
+    }
+    * { box-sizing: border-box; }
+    body {
+      width: 360px;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--cream);
+      color: var(--ink);
+      padding: 16px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+    .header img { width: 28px; height: 28px; }
+    .header h1 { font-size: 16px; margin: 0; font-weight: 800; }
+    .header .accent { color: var(--orange); }
+    .target {
+      font-size: 12px;
+      color: var(--brown);
+      background: rgba(255,255,255,0.5);
+      border: 1px solid rgba(42,24,16,0.1);
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin-bottom: 12px;
+      min-height: 18px;
+    }
+    button.primary {
+      width: 100%;
+      background: var(--orange);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 11px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.primary:hover { background: var(--orange-hover); }
+    button.primary:disabled { opacity: 0.5; cursor: default; }
+    .draft {
+      background: white;
+      border: 1px solid rgba(42,24,16,0.12);
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .draft .meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .draft .count { font-size: 11px; color: #999; }
+    .copy {
+      background: var(--ink);
+      color: white;
+      border: none;
+      border-radius: 7px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .copy.copied { background: #2e7d32; }
+    .error { color: #b00020; font-size: 12px; margin-top: 10px; }
+    .settings-link {
+      display: block;
+      margin-top: 14px;
+      font-size: 11px;
+      color: var(--brown);
+      text-align: center;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    .settings { display: none; margin-top: 12px; }
+    .settings.open { display: block; }
+    .settings label { display: block; font-size: 11px; color: var(--brown); margin: 8px 0 3px; }
+    .settings input {
+      width: 100%;
+      padding: 7px;
+      border: 1px solid rgba(42,24,16,0.2);
+      border-radius: 7px;
+      font-size: 12px;
+    }
+    .settings button {
+      margin-top: 10px;
+      width: 100%;
+      background: var(--ink);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img src="icons/icon48.png" alt="" />
+    <h1>Network <span class="accent">Buddy</span></h1>
+  </div>
+
+  <div class="target" id="target">Open a LinkedIn profile to get started.</div>
+
+  <button class="primary" id="generate" disabled>Draft messages</button>
+
+  <div id="results"></div>
+  <div class="error" id="error"></div>
+
+  <span class="settings-link" id="settingsToggle">Settings</span>
+  <div class="settings" id="settings">
+    <label>API base URL</label>
+    <input id="apiBase" placeholder="http://localhost:3000" />
+    <label>Extension key</label>
+    <input id="apiKey" placeholder="your EXTENSION_API_KEY" />
+    <label>Your name</label>
+    <input id="studentName" placeholder="Ryan Poirier" />
+    <label>Your school</label>
+    <input id="studentSchool" placeholder="UBC" />
+    <label>Your program</label>
+    <input id="studentProgram" placeholder="Commerce" />
+    <button id="saveSettings">Save</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

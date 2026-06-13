@@ -5,7 +5,7 @@ export async function updateSession(request: NextRequest) {
   // Coming-soon mode: hide everything except landing + waitlist
   if (process.env.COMING_SOON === 'true') {
     const path = request.nextUrl.pathname
-    const allowed = path === '/' || path.startsWith('/api/waitlist') || path.startsWith('/_next') || path === '/favicon.ico' || path === '/mascot.gif' || path === '/texture.png' || path.endsWith('.png') || path.endsWith('.ico')
+    const allowed = path === '/' || path.startsWith('/api/waitlist') || path.startsWith('/api/extension') || path.startsWith('/_next') || path === '/favicon.ico' || path === '/mascot.gif' || path === '/texture.png' || path.endsWith('.png') || path.endsWith('.ico')
     if (!allowed) {
       const url = request.nextUrl.clone()
       url.pathname = '/'

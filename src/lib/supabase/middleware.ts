@@ -40,7 +40,7 @@ export async function updateSession(request: NextRequest) {
   const url = request.nextUrl.clone()
   const isAuthPage = url.pathname.startsWith('/auth')
   const isOnboarding = url.pathname.startsWith('/onboarding')
-  const isPublic = url.pathname === '/' || url.pathname.startsWith('/api/waitlist')
+  const isPublic = url.pathname === '/' || url.pathname.startsWith('/api/waitlist') || url.pathname.startsWith('/api/extension')
 
   if (!user && !isAuthPage && !isPublic) {
     url.pathname = '/auth/login'

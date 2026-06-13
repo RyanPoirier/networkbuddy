@@ -2,6 +2,18 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
+  // Coming-soon mode: hide everything except landing + waitlist
+  if (process.env.COMING_SOON === 'true') {
+    const path = request.nextUrl.pathname
+    const allowed = path === '/' || path.startsWith('/api/waitlist') || path.startsWith('/_next') || path === '/favicon.ico' || path === '/mascot.gif' || path === '/texture.png' || path.endsWith('.png') || path.endsWith('.ico')
+    if (!allowed) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(

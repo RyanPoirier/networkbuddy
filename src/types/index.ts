@@ -14,6 +14,7 @@ export interface UserProfile {
 
 export interface Contact {
   id: string
+  user_id: string
   full_name: string
   title: string
   company: string
@@ -22,6 +23,26 @@ export interface Contact {
   linkedin_url: string | null
   email_verified: boolean
   last_verified_at: string | null
+  created_at: string
+}
+
+export type LinkedInConnectionStatus = 'none' | 'pending' | 'connected'
+
+export type InteractionType =
+  | 'connection_sent'
+  | 'connection_accepted'
+  | 'linkedin_message'
+  | 'email_sent'
+  | 'reply_received'
+  | 'note'
+
+export interface Interaction {
+  id: string
+  user_id: string
+  outreach_id: string
+  type: InteractionType
+  channel: 'linkedin' | 'email'
+  content: string | null
   created_at: string
 }
 
@@ -38,6 +59,8 @@ export interface OutreachRecord {
   user_id: string
   contact_id: string
   status: OutreachStatus
+  linkedin_connection_status: LinkedInConnectionStatus
+  connection_requested_at: string | null
   email_sent_at: string | null
   followup_due_at: string | null
   notes: string | null

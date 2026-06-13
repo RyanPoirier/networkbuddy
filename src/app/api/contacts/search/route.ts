@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
     email?: string
     linkedin_url?: string
   }) => ({
+    user_id: user.id,
     full_name: p.name ?? `${p.first_name ?? ''} ${p.last_name ?? p.last_name_obfuscated ?? ''}`.trim(),
     title: p.title ?? '',
     company: p.organization?.name ?? company,

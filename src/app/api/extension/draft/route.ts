@@ -68,10 +68,28 @@ Return ONLY JSON:
     return NextResponse.json({ error: 'Generation failed' }, { status: 500, headers: corsHeaders })
   }
 
-  try {
-    const parsed = JSON.parse(content.text.replace(/```json\n?|\n?```/g, ''))
-    return NextResponse.json(parsed, { headers: corsHeaders })
-  } catch {
-    return NextResponse.json({ error: 'Parse failed', raw: content.text }, { status: 500, headers: corsHeaders })
+  // Extract the JSON object even if Claude wraps it in prose or code fences.
+  function extractJson(raw: string): unknown | null {
+    const stripped = raw.replace(/```json\n?|\n?```/g, '').trim()
+    try {
+      return JSON.parse(stripped)
+    } catch {
+      const start = stripped.indexOf('{')
+      const end = stripped.lastIndexOf('}')
+      if (start !== -1 && end > start) {
+        try {
+          return JSON.parse(stripped.slice(start, end + 1))
+        } catch {
+          return null
+        }
+      }
+      return null
+    }
   }
+
+  const parsed = extractJson(content.text) as { drafts?: string[] } | null
+  if (parsed && Array.isArray(parsed.drafts)) {
+    return NextResponse.json(parsed, { headers: corsHeaders })
+  }
+  return NextResponse.json({ error: 'Parse failed', raw: content.text }, { status: 500, headers: corsHeaders })
 }

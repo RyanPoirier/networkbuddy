@@ -1,45 +1,83 @@
 // Runs on LinkedIn profile pages. Scrapes the visible profile into a clean object
 // when the popup asks for it.
 
-function text(selector) {
-  const el = document.querySelector(selector)
-  return el ? el.textContent.trim().replace(/\s+/g, ' ') : ''
+function clean(s) {
+  return (s || '').trim().replace(/\s+/g, ' ')
+}
+
+function text(selector, root = document) {
+  const el = root.querySelector(selector)
+  return el ? clean(el.textContent) : ''
+}
+
+function meta(prop) {
+  const el =
+    document.querySelector(`meta[property="${prop}"]`) ||
+    document.querySelector(`meta[name="${prop}"]`)
+  return el ? clean(el.getAttribute('content')) : ''
+}
+
+function getName() {
+  // Strategy 1: the main top-card h1 (most reliable, most specific first)
+  const h1s = Array.from(document.querySelectorAll('main h1, h1'))
+  for (const h of h1s) {
+    const t = clean(h.textContent)
+    if (t && t.length < 80 && !/linkedin/i.test(t)) return t
+  }
+  // Strategy 2: og:title meta, usually "Name - Company | LinkedIn"
+  const og = meta('og:title')
+  if (og) return clean(og.split(/[-|]/)[0])
+  // Strategy 3: document.title, e.g. "(3) Name | LinkedIn"
+  const dt = clean(document.title.replace(/^\(\d+\)\s*/, '').split('|')[0])
+  if (dt && !/linkedin/i.test(dt)) return dt
+  return ''
+}
+
+function getHeadline(name) {
+  // The headline sits right under the name in the top card.
+  const candidates = Array.from(
+    document.querySelectorAll('.text-body-medium, [data-generated-suggestion-target]')
+  )
+  for (const el of candidates) {
+    const t = clean(el.textContent)
+    if (t && t !== name && t.length > 5 && t.length < 220) return t
+  }
+  // Fallback: og:description often holds "Headline · Location · 500+ connections"
+  const desc = meta('og:description')
+  if (desc) return clean(desc.split('·')[0])
+  return ''
+}
+
+function getCompany() {
+  // Top-card current-company button
+  const btn = document.querySelector('button[aria-label^="Current company"]')
+  if (btn) return clean(btn.getAttribute('aria-label').replace(/^Current company:?\s*/i, ''))
+  // Experience section: first company link/name
+  const exp = document.querySelector('#experience')
+  if (exp) {
+    const section = exp.closest('section')
+    const span = section && section.querySelector('span[aria-hidden="true"]')
+    if (span) return clean(span.textContent)
+  }
+  return ''
+}
+
+function getAbout() {
+  const anchor = document.querySelector('#about')
+  if (anchor) {
+    const section = anchor.closest('section')
+    if (section) return clean(section.innerText.replace(/^About\s*/i, ''))
+  }
+  return ''
 }
 
 function scrapeProfile() {
-  // LinkedIn's DOM changes often, so we try a few selectors per field and
-  // fall back gracefully.
-  const name =
-    text('h1.text-heading-xlarge') ||
-    text('main h1') ||
-    text('h1')
-
-  const headline =
-    text('.text-body-medium.break-words') ||
-    text('[data-generated-suggestion-target] .text-body-medium') ||
-    text('main .text-body-medium')
-
-  // Current company: try the experience/top-card company button
-  const company =
-    text('button[aria-label^="Current company"]') ||
-    text('.pv-text-details__right-panel .inline-show-more-text') ||
-    ''
-
-  // About section
-  let about = ''
-  const aboutAnchor = document.querySelector('#about')
-  if (aboutAnchor) {
-    const section = aboutAnchor.closest('section')
-    if (section) {
-      about = section.innerText.replace(/^About\s*/i, '').trim().replace(/\s+/g, ' ')
-    }
-  }
-
+  const name = getName()
   return {
     name,
-    headline,
-    company,
-    about,
+    headline: getHeadline(name),
+    company: getCompany(),
+    about: getAbout(),
     profileUrl: location.href.split('?')[0],
   }
 }

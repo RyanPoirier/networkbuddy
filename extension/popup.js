@@ -36,6 +36,14 @@ els.saveSettings.onclick = () => {
 }
 
 // --- scrape current profile -------------------------------------------------
+async function askProfile(tabId) {
+  try {
+    return await chrome.tabs.sendMessage(tabId, { type: 'SCRAPE_PROFILE' })
+  } catch {
+    return null
+  }
+}
+
 async function loadProfile() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
   if (!tab || !/linkedin\.com\/in\//.test(tab.url || '')) {
@@ -43,17 +51,25 @@ async function loadProfile() {
     els.generate.disabled = true
     return
   }
-  try {
-    profile = await chrome.tabs.sendMessage(tab.id, { type: 'SCRAPE_PROFILE' })
-    if (profile && profile.name) {
-      els.target.innerHTML = `<strong>${profile.name}</strong><br>${profile.headline || ''}`
-      els.generate.disabled = false
-    } else {
-      els.target.textContent = 'Could not read this profile. Try scrolling up and reopening.'
-      els.generate.disabled = true
+
+  // First attempt: talk to the content script.
+  profile = await askProfile(tab.id)
+
+  // If the tab was open before the extension loaded, inject the scraper now.
+  if (!profile) {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] })
+      profile = await askProfile(tab.id)
+    } catch {
+      // ignore, handled below
     }
-  } catch {
-    els.target.textContent = 'Reload the LinkedIn tab, then reopen Network Buddy.'
+  }
+
+  if (profile && profile.name) {
+    els.target.innerHTML = `<strong>${profile.name}</strong><br>${profile.headline || ''}`
+    els.generate.disabled = false
+  } else {
+    els.target.textContent = 'Could not read this profile. Reload the LinkedIn tab and reopen.'
     els.generate.disabled = true
   }
 }

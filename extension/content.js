@@ -244,7 +244,7 @@ function nbPosition() {
 
 window.addEventListener('resize', () => nbPanel && nbPosition())
 
-function nbInsert(box, t) {
+function nbInsertOnce(box, t) {
   box.focus()
 
   if (box.tagName === 'TEXTAREA' || box.tagName === 'INPUT') {
@@ -257,7 +257,6 @@ function nbInsert(box, t) {
 
   // contenteditable (LinkedIn's custom message editor)
   box.focus()
-  // Put the caret in the box.
   try {
     const sel = window.getSelection()
     const range = document.createRange()
@@ -267,35 +266,37 @@ function nbInsert(box, t) {
     sel.addRange(range)
   } catch {}
 
-  // 1) execCommand insertText — the path that pastes regular messages in one
-  //    click.
   try {
     if (document.execCommand('insertText', false, t) && box.textContent.trim()) return true
   } catch {}
 
-  // 2) Synthetic paste event — fallback for editors (e.g. InMail) that only
-  //    wake on a real paste.
   try {
     const dt = new DataTransfer()
     dt.setData('text/plain', t)
-    const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })
-    box.dispatchEvent(ev)
+    box.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
   } catch {}
   if (box.textContent && box.textContent.trim()) return true
 
-  // 3) beforeinput/input (Lexical/Draft-style editors).
   try {
     box.dispatchEvent(
       new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: t })
     )
     box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: t }))
   } catch {}
-  if (box.textContent && box.textContent.trim()) return true
-
-  // 4) Last resort.
-  box.textContent = t
-  box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: t }))
   return !!(box.textContent && box.textContent.trim())
+}
+
+// Focus + attempt, and if the editor wasn't ready, retry a couple of times —
+// this does in one click what previously needed a second click.
+function nbInsert(box, t) {
+  if (!box) return false
+  if (nbInsertOnce(box, t)) return true
+  let tries = 0
+  const timer = setInterval(() => {
+    tries++
+    if (nbInsertOnce(box, t) || tries >= 4) clearInterval(timer)
+  }, 70)
+  return true
 }
 
 function nbRender(drafts) {
@@ -316,9 +317,6 @@ function nbRender(drafts) {
     meta.textContent = d.length + ' chars'
     el.appendChild(txt)
     el.appendChild(meta)
-    // Keep focus in the message box when the draft is clicked, so the insert
-    // hits a focused editor on the first click.
-    el.addEventListener('mousedown', (e) => e.preventDefault())
     el.onclick = () => {
       // Paste — the relay path that worked before. Don't touch focus/clipboard.
       chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })

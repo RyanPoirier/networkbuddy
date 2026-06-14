@@ -374,20 +374,37 @@ function nbScanForBox() {
   return null
 }
 
-// Watch this frame for the box appearing/disappearing and notify the top frame.
+// A compose WINDOW (conversation bubble or connection-note modal) exists in the
+// DOM immediately when opened — unlike the editable, which LinkedIn creates
+// lazily on focus. We trigger the panel on the window, not the editable.
+function nbComposeWindow() {
+  const bubble = document.querySelectorAll('[class*="msg-overlay-conversation-bubble"]')
+  for (const b of bubble) {
+    const r = b.getBoundingClientRect()
+    if (r.height > 200 && r.width > 200) return b
+  }
+  const note = document.querySelector('textarea[name="message"], #custom-message')
+  if (note && nbVisible(note)) return note
+  return null
+}
+
+// Watch this frame: keep the paste target current, and (top frame) show/hide
+// the panel based on whether a compose window is open.
 let nbWatchTimer = null
 function nbWatchForBox() {
   clearTimeout(nbWatchTimer)
   nbWatchTimer = setTimeout(() => {
     const box = nbScanForBox()
-    if (box) {
-      if (box !== nbCurrentBox) {
-        nbCurrentBox = box
-        chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' }) // -> top frame shows panel
+    if (box) nbCurrentBox = box // remember paste target if the editable exists
+
+    if (NB_TOP) {
+      const open = nbComposeWindow()
+      if (open && !nbPanel) {
+        nbGenerate(false)
+      } else if (!open && nbPanel) {
+        nbActiveKey = null
+        nbRemovePanel()
       }
-    } else if (nbCurrentBox) {
-      nbCurrentBox = null
-      chrome.runtime.sendMessage({ type: 'NB_BOX_GONE' })
     }
   }, 250)
 }
@@ -424,6 +441,7 @@ chrome.runtime.onMessage.addListener((msg) => {
     nbRemovePanel()
   }
   if (msg.type === 'NB_DO_PASTE') {
-    if (nbCurrentBox && nbVisible(nbCurrentBox)) nbInsert(nbCurrentBox, msg.text)
+    let box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
+    if (box) nbInsert(box, msg.text)
   }
 })

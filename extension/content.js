@@ -314,8 +314,10 @@ function nbRender(drafts) {
       try {
         navigator.clipboard.writeText(d)
       } catch {}
+      // Save this person to the CRM and log the message.
+      chrome.runtime.sendMessage({ type: 'NB_SAVE', payload: { ...nbProfileForSave(), message: d } })
       el.style.borderColor = '#2e7d32'
-      meta.textContent = 'Pasted ✓  (or press ⌘V)'
+      meta.textContent = 'Pasted ✓ · saved to CRM'
     }
     body.appendChild(el)
   })
@@ -329,6 +331,19 @@ function nbRender(drafts) {
 
 function nbStatus(msg) {
   if (nbPanel) nbPanel.querySelector('.nb-body').innerHTML = '<div class="nb-status">' + msg + '</div>'
+}
+
+// Gather the target's details for saving to the CRM (top frame on a profile).
+function nbProfileForSave() {
+  const nameEl = getNameEl()
+  const name = getName(nameEl) || nbRecipientName()
+  const headline = getHeadline(nameEl, name)
+  return {
+    name,
+    title: headline,
+    company: getCompany(headline),
+    linkedinUrl: /\/in\//.test(location.pathname) ? location.href.split('?')[0] : '',
+  }
 }
 
 function nbRecipientName() {

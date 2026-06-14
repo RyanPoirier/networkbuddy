@@ -14,24 +14,19 @@ export async function POST(request: NextRequest) {
 
   let domain = rawDomain
 
-  // If no domain, resolve it from company name via Hunter
-  if (!domain && company) {
-    const enrichRes = await fetch(
-      `https://api.hunter.io/v2/companies/find?name=${encodeURIComponent(company)}&api_key=${hunterKey}`
-    )
-    if (enrichRes.ok) {
-      const enrichData = await enrichRes.json()
-      domain = enrichData.data?.domain ?? ''
-    }
-  }
-
-  if (!domain) return NextResponse.json({ email: null, linkedin_url: null })
-
   const firstName = fullName.trim().split(' ')[0].toLowerCase()
 
-  // Hunter domain search — returns emails + LinkedIn URLs for contacts at this domain
+  // Hunter domain search — accepts domain or company name, returns emails + LinkedIn URLs
+  const searchParam = domain
+    ? `domain=${encodeURIComponent(domain)}`
+    : company
+    ? `company=${encodeURIComponent(company)}`
+    : null
+
+  if (!searchParam) return NextResponse.json({ email: null, linkedin_url: null })
+
   const res = await fetch(
-    `https://api.hunter.io/v2/domain-search?domain=${encodeURIComponent(domain)}&api_key=${hunterKey}&limit=100`
+    `https://api.hunter.io/v2/domain-search?${searchParam}&api_key=${hunterKey}&limit=100`
   )
 
   if (!res.ok) return NextResponse.json({ email: null, linkedin_url: null })

@@ -359,14 +359,17 @@ if (NB_TOP && document.body) {
 // frame-scoped to avoid false positives (the composer body is iframed; the
 // connection-note textarea lives in the top frame).
 function nbScanForBox() {
-  const sels = NB_TOP
-    ? ['textarea[name="message"]', '#custom-message', '.connect-button-send-invite__custom-message textarea']
-    : ['.msg-form__contenteditable', 'div[role="textbox"][contenteditable="true"]', 'div[contenteditable="true"]', 'textarea']
-  for (const s of sels) {
-    const els = document.querySelectorAll(s)
-    for (const el of els) {
-      if (nbIsEditable(el) && nbVisible(el)) return el
-    }
+  // Explicit message / connection-note boxes (work in any frame).
+  const direct = document.querySelector(
+    '.msg-form__contenteditable, [aria-label^="Write a message"], [aria-placeholder^="Write a message"], textarea[name="message"], #custom-message'
+  )
+  if (direct && nbVisible(direct)) return direct
+  // Generic editable, but only if it sits inside a messaging container — avoids
+  // matching post/comment composers elsewhere on the page.
+  const ces = document.querySelectorAll('div[contenteditable="true"], div[role="textbox"][contenteditable]')
+  for (const el of ces) {
+    if (!nbVisible(el)) continue
+    if (el.closest && el.closest('[class*="msg-"], [class*="message"], [class*="compose"]')) return el
   }
   return null
 }

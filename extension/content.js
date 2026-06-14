@@ -134,10 +134,19 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 const NB_BOX_SELECTORS = [
   '.msg-form__contenteditable',            // messaging compose box
+  'div[role="textbox"][contenteditable="true"]', // overlay / InMail compose
+  '[aria-label^="Write a message"]',       // message placeholder box
+  '[aria-label^="Write a reply"]',
   'textarea[name="message"]',              // connection note (current)
   '#custom-message',                       // connection note (legacy id)
   '.connect-button-send-invite__custom-message textarea',
 ]
+
+function nbVisible(el) {
+  if (!el) return false
+  const r = el.getBoundingClientRect()
+  return r.width > 40 && r.height > 15
+}
 
 let nbPanel = null
 let nbCurrentBox = null
@@ -295,8 +304,10 @@ function nbGenerate(box, force) {
 
 function nbFindBox() {
   for (const s of NB_BOX_SELECTORS) {
-    const el = document.querySelector(s)
-    if (el && el.offsetParent !== null) return el
+    const els = document.querySelectorAll(s)
+    for (const el of els) {
+      if (nbVisible(el)) return el
+    }
   }
   return null
 }

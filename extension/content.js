@@ -316,6 +316,9 @@ function nbRender(drafts) {
     meta.textContent = d.length + ' chars'
     el.appendChild(txt)
     el.appendChild(meta)
+    // Keep focus in the message box when the draft is clicked, so the insert
+    // hits a focused editor on the first click.
+    el.addEventListener('mousedown', (e) => e.preventDefault())
     el.onclick = () => {
       // Paste — the relay path that worked before. Don't touch focus/clipboard.
       chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })

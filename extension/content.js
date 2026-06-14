@@ -126,3 +126,203 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   return true
 })
+
+// ===========================================================================
+// In-page assistant: detect an open message / connection-note box, show a
+// floating panel beside it with 3 drafts, and paste the one you click.
+// ===========================================================================
+
+const NB_BOX_SELECTORS = [
+  '.msg-form__contenteditable',            // messaging compose box
+  'textarea[name="message"]',              // connection note (current)
+  '#custom-message',                       // connection note (legacy id)
+  '.connect-button-send-invite__custom-message textarea',
+]
+
+let nbPanel = null
+let nbCurrentBox = null
+let nbActiveKey = null
+const nbCache = {}
+
+function nbInjectStyles() {
+  if (document.getElementById('nb-styles')) return
+  const style = document.createElement('style')
+  style.id = 'nb-styles'
+  style.textContent = `
+    #nb-panel { position: fixed; z-index: 2147483647; width: 320px; max-height: 70vh;
+      overflow-y: auto; background:#f1ecd5; border:1px solid rgba(42,24,16,0.15);
+      border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,0.22);
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; color:#2a1810; padding:12px; }
+    #nb-panel .nb-head { display:flex; align-items:center; gap:6px; justify-content:space-between; margin-bottom:8px; }
+    #nb-panel .nb-title { font-size:13px; font-weight:800; display:flex; align-items:center; gap:6px; }
+    #nb-panel .nb-title b { color:#c14a1a; }
+    #nb-panel .nb-title img { width:18px; height:18px; }
+    #nb-panel .nb-x { cursor:pointer; border:none; background:none; font-size:13px; color:#7a4a20; padding:2px 4px; }
+    #nb-panel .nb-draft { background:white; border:1px solid rgba(42,24,16,0.12); border-radius:10px;
+      padding:9px; margin-bottom:8px; font-size:12.5px; line-height:1.4; cursor:pointer; transition:border-color .1s; }
+    #nb-panel .nb-draft:hover { border-color:#c14a1a; }
+    #nb-panel .nb-count { display:block; margin-top:6px; font-size:10px; color:#9a8e74; }
+    #nb-panel .nb-status { font-size:12px; color:#7a4a20; padding:6px 2px; }
+    #nb-panel .nb-refresh { width:100%; background:#2a1810; color:white; border:none; border-radius:8px;
+      padding:7px; font-size:12px; cursor:pointer; }
+  `
+  document.documentElement.appendChild(style)
+}
+
+function nbRemovePanel() {
+  if (nbPanel) nbPanel.remove()
+  nbPanel = null
+}
+
+function nbBuildPanel() {
+  nbInjectStyles()
+  nbRemovePanel()
+  const p = document.createElement('div')
+  p.id = 'nb-panel'
+  const icon = chrome.runtime.getURL('icons/icon48.png')
+  p.innerHTML =
+    '<div class="nb-head"><div class="nb-title"><img src="' + icon + '"/>Network <b>Buddy</b></div>' +
+    '<button class="nb-x" title="Close">✕</button></div>' +
+    '<div class="nb-body"><div class="nb-status">Drafting…</div></div>'
+  document.body.appendChild(p)
+  p.querySelector('.nb-x').onclick = () => {
+    nbActiveKey = '__dismissed__'
+    nbRemovePanel()
+  }
+  nbPanel = p
+  return p
+}
+
+function nbPosition(box) {
+  if (!nbPanel || !box) return
+  const r = box.getBoundingClientRect()
+  const w = 320
+  let left = r.left
+  if (left + w > window.innerWidth - 8) left = window.innerWidth - w - 8
+  if (left < 8) left = 8
+  let top = r.top - nbPanel.offsetHeight - 10
+  if (top < 8) top = r.bottom + 10 // not enough room above -> place below
+  nbPanel.style.left = Math.round(left) + 'px'
+  nbPanel.style.top = Math.round(top) + 'px'
+}
+
+function nbInsert(box, t) {
+  box.focus()
+  if (box.tagName === 'TEXTAREA' || box.tagName === 'INPUT') {
+    const proto = box.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
+    const setter = Object.getOwnPropertyDescriptor(proto, 'value').set
+    setter.call(box, t)
+    box.dispatchEvent(new Event('input', { bubbles: true }))
+  } else {
+    // contenteditable (LinkedIn messaging editor)
+    document.execCommand('selectAll', false, null)
+    const ok = document.execCommand('insertText', false, t)
+    if (!ok) {
+      box.textContent = t
+      box.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    }
+  }
+}
+
+function nbRender(drafts, box) {
+  if (!nbPanel) return
+  const body = nbPanel.querySelector('.nb-body')
+  body.innerHTML = ''
+  drafts.forEach((d) => {
+    const el = document.createElement('div')
+    el.className = 'nb-draft'
+    const txt = document.createElement('div')
+    txt.textContent = d
+    const meta = document.createElement('span')
+    meta.className = 'nb-count'
+    meta.textContent = d.length + ' chars · click to paste'
+    el.appendChild(txt)
+    el.appendChild(meta)
+    el.onclick = () => {
+      nbInsert(box, d)
+      el.style.borderColor = '#2e7d32'
+      meta.textContent = 'Pasted ✓'
+    }
+    body.appendChild(el)
+  })
+  const refresh = document.createElement('button')
+  refresh.className = 'nb-refresh'
+  refresh.textContent = 'Regenerate'
+  refresh.onclick = () => nbGenerate(box, true)
+  body.appendChild(refresh)
+  nbPosition(box)
+}
+
+function nbStatus(msg) {
+  if (nbPanel) nbPanel.querySelector('.nb-body').innerHTML = '<div class="nb-status">' + msg + '</div>'
+}
+
+function nbRecipientName() {
+  const sel = [
+    '.msg-overlay-bubble-header__title',
+    '.msg-entity-lockup__entity-title',
+    'h2.msg-overlay-bubble-header__title span',
+    '.artdeco-modal__header h2',
+  ]
+  for (const s of sel) {
+    const el = document.querySelector(s)
+    if (el && clean(el.textContent)) return clean(el.textContent)
+  }
+  return ''
+}
+
+function nbGenerate(box, force) {
+  const name = getName(getNameEl()) || nbRecipientName()
+  const profileText = getProfileText()
+  const key = name || location.pathname
+
+  nbBuildPanel()
+  nbPosition(box)
+
+  if (!force && nbCache[key]) {
+    nbRender(nbCache[key], box)
+    return
+  }
+  nbStatus('Drafting…')
+  chrome.runtime.sendMessage({ type: 'GENERATE', payload: { name, profileText } }, (resp) => {
+    if (chrome.runtime.lastError || !resp) return nbStatus('No response — is the app running?')
+    if (resp.error === 'no-key') return nbStatus('Open the extension and add your key in Settings.')
+    if (resp.error) return nbStatus('Error: ' + resp.error)
+    nbCache[key] = resp.drafts
+    nbRender(resp.drafts, box)
+  })
+}
+
+function nbFindBox() {
+  for (const s of NB_BOX_SELECTORS) {
+    const el = document.querySelector(s)
+    if (el && el.offsetParent !== null) return el
+  }
+  return null
+}
+
+let nbTimer = null
+function nbWatch() {
+  clearTimeout(nbTimer)
+  nbTimer = setTimeout(() => {
+    const box = nbFindBox()
+    if (box) {
+      const key = nbRecipientName() || getName(getNameEl()) || location.pathname
+      if (box !== nbCurrentBox || key !== nbActiveKey) {
+        if (nbActiveKey === '__dismissed__' && key === nbActiveKey) return
+        nbCurrentBox = box
+        nbActiveKey = key
+        nbGenerate(box, false)
+      }
+    } else if (nbCurrentBox) {
+      nbCurrentBox = null
+      nbActiveKey = null
+      nbRemovePanel()
+    }
+  }, 350)
+}
+
+new MutationObserver(nbWatch).observe(document.body, { childList: true, subtree: true })
+window.addEventListener('scroll', () => nbCurrentBox && nbPosition(nbCurrentBox), true)
+window.addEventListener('resize', () => nbCurrentBox && nbPosition(nbCurrentBox))
+nbWatch()

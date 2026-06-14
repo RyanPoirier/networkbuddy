@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
     studentName = '',
     studentSchool = '',
     studentProgram = '',
+    studentBackground = '',
   } = await request.json()
 
   if (!name) {
@@ -36,10 +37,11 @@ export async function POST(request: NextRequest) {
 
   const prompt = `You are helping a university student write LinkedIn connection request notes to a professional they want to network with for a potential referral.
 
-Student:
+Student (the person sending the message):
 - Name: ${studentName || '(unspecified)'}
 - School: ${studentSchool || '(unspecified)'}
 - Program: ${studentProgram || '(unspecified)'}
+${studentBackground ? `- Background / resume:\n${studentBackground.slice(0, 1500)}` : ''}
 
 Person they're reaching out to (scraped from their LinkedIn profile):
 - Name: ${name}
@@ -53,6 +55,7 @@ Use the raw top-card text to infer their role, company, school, or focus if the 
 Write 3 distinct LinkedIn connection request notes. Each must:
 - Be under 300 characters (LinkedIn's hard limit)
 - Reference something SPECIFIC about this person (their actual role, company, school, or field) — never vague filler like "your field" or "your industry"
+- Where natural, tie in a relevant detail from the student's own background (shared school, similar interest, relevant experience) so it reads as a genuine two-way connection
 - Sound genuine and human, not templated or salesy
 - End with a soft ask to connect or chat briefly
 - Vary in angle: one curious/learning-focused, one shared-background, one direct-and-warm

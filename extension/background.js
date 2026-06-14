@@ -5,7 +5,11 @@ function getSettings() {
   return new Promise((resolve) => {
     chrome.storage.sync.get(
       ['apiBase', 'apiKey', 'studentName', 'studentSchool', 'studentProgram'],
-      resolve
+      (sync) => {
+        chrome.storage.local.get(['studentBackground'], (local) => {
+          resolve({ ...sync, studentBackground: local.studentBackground || '' })
+        })
+      }
     )
   })
 }
@@ -42,6 +46,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           studentName: s.studentName || '',
           studentSchool: s.studentSchool || '',
           studentProgram: s.studentProgram || '',
+          studentBackground: s.studentBackground || '',
         }),
       })
       const data = await res.json()

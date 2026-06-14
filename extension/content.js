@@ -187,6 +187,7 @@ function nbInjectStyles() {
     #nb-panel .nb-draft:hover { border-color:#c14a1a; }
     #nb-panel .nb-count { display:block; margin-top:6px; font-size:10px; color:#9a8e74; }
     #nb-panel .nb-status { font-size:12px; color:#7a4a20; padding:6px 2px; }
+    #nb-panel .nb-hint { font-size:11px; color:#7a4a20; opacity:0.8; margin-bottom:8px; }
     #nb-panel .nb-refresh { width:100%; background:#2a1810; color:white; border:none; border-radius:8px;
       padding:7px; font-size:12px; cursor:pointer; }
   `
@@ -243,25 +244,6 @@ function nbPosition() {
 
 window.addEventListener('resize', () => nbPanel && nbPosition())
 
-// Synchronously copy text to the clipboard via a temp textarea (works inside a
-// user gesture without async permissions).
-function nbCopyToClipboard(t) {
-  try {
-    const ta = document.createElement('textarea')
-    ta.value = t
-    ta.style.position = 'fixed'
-    ta.style.top = '-9999px'
-    ta.style.opacity = '0'
-    document.body.appendChild(ta)
-    ta.select()
-    document.execCommand('copy')
-    ta.remove()
-    return true
-  } catch {
-    return false
-  }
-}
-
 function nbInsert(box, t) {
   box.focus()
 
@@ -282,16 +264,6 @@ function nbInsert(box, t) {
     range.selectNodeContents(box)
     sel.removeAllRanges()
     sel.addRange(range)
-  } catch {}
-
-  // 0) Real paste pipeline — copy text, then execCommand('paste') fires a
-  //    genuine (trusted) paste, exactly like ⌘V, which is the only thing this
-  //    editor reliably accepts. Requires clipboardRead/Write permissions.
-  try {
-    if (nbCopyToClipboard(t)) {
-      box.focus()
-      if (document.execCommand('paste') && box.textContent.trim()) return true
-    }
   } catch {}
 
   // 1) execCommand insertText — works with most editors and fires their events.
@@ -322,6 +294,10 @@ function nbRender(drafts) {
   if (!nbPanel) return
   const body = nbPanel.querySelector('.nb-body')
   body.innerHTML = ''
+  const hint = document.createElement('div')
+  hint.className = 'nb-hint'
+  hint.textContent = 'Click into the message box, then a draft to paste.'
+  body.appendChild(hint)
   drafts.forEach((d) => {
     const el = document.createElement('div')
     el.className = 'nb-draft'
@@ -329,21 +305,17 @@ function nbRender(drafts) {
     txt.textContent = d
     const meta = document.createElement('span')
     meta.className = 'nb-count'
-    meta.textContent = d.length + ' chars · click to paste'
+    meta.textContent = d.length + ' chars'
     el.appendChild(txt)
     el.appendChild(meta)
-    // Don't let clicking the draft steal focus from the message box — keeps the
-    // cursor in the editor so the paste lands.
-    el.addEventListener('mousedown', (e) => e.preventDefault())
     el.onclick = () => {
-      // Insert synchronously inside the click (box still focused, gesture live).
-      let pasted = false
-      const box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
-      if (box) pasted = nbInsert(box, d)
-      // If the box is in another frame, relay it.
-      if (!pasted) chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
+      // Relay paste to the frame with the box, and copy to clipboard as backup.
+      chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
+      try {
+        navigator.clipboard.writeText(d)
+      } catch {}
       el.style.borderColor = '#2e7d32'
-      meta.textContent = 'Pasted ✓'
+      meta.textContent = 'Pasted ✓  (or press ⌘V)'
     }
     body.appendChild(el)
   })
@@ -423,19 +395,39 @@ if (NB_TOP && document.body) {
 // frame-scoped to avoid false positives (the composer body is iframed; the
 // connection-note textarea lives in the top frame).
 function nbScanForBox() {
-  // Explicit message / connection-note boxes (work in any frame).
-  const direct = document.querySelector(
-    '.msg-form__contenteditable, [aria-label^="Write a message"], [aria-placeholder^="Write a message"], textarea[name="message"], #custom-message'
-  )
-  if (direct && nbVisible(direct)) return direct
-  // Generic editable, but only if it sits inside a messaging container — avoids
-  // matching post/comment composers elsewhere on the page.
-  const ces = document.querySelectorAll('div[contenteditable="true"], div[role="textbox"][contenteditable]')
-  for (const el of ces) {
-    if (!nbVisible(el)) continue
-    if (el.closest && el.closest('[class*="msg-"], [class*="message"], [class*="compose"]')) return el
+  // Iterate matches and return the first VISIBLE one — there can be several
+  // (e.g. the hidden messaging-dock editable plus the open compose window).
+  const sels = [
+    '.msg-form__contenteditable',
+    '[aria-placeholder^="Write a message"]',
+    'textarea[name="message"]',
+    '#custom-message',
+  ]
+  for (const s of sels) {
+    for (const el of document.querySelectorAll(s)) {
+      if (nbVisible(el)) return el
+    }
   }
-  return null
+  // Generic editable inside a messaging container.
+  for (const el of document.querySelectorAll('div[contenteditable="true"], div[role="textbox"][contenteditable]')) {
+    if (nbVisible(el) && el.closest && el.closest('[class*="msg-"], [class*="message"]')) return el
+  }
+  // Last resort (e.g. InMail body, which uses different classes): the largest
+  // visible contenteditable / textbox on the page.
+  let best = null
+  let bestArea = 0
+  const cands = document.querySelectorAll('[contenteditable="true"], [role="textbox"], textarea')
+  for (const el of cands) {
+    if (el.closest && el.closest('#nb-panel')) continue
+    const r = el.getBoundingClientRect()
+    if (r.width < 120 || r.height < 40) continue // skip subject lines / small inputs
+    const area = r.width * r.height
+    if (area > bestArea) {
+      bestArea = area
+      best = el
+    }
+  }
+  return best
 }
 
 // A compose WINDOW exists in the DOM immediately when opened — unlike the
@@ -530,23 +522,8 @@ chrome.runtime.onMessage.addListener((msg) => {
     nbRemovePanel()
   }
   if (msg.type === 'NB_DO_PASTE') {
-    let box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
-    if (box) {
-      nbInsert(box, msg.text)
-      return
-    }
-    // Editable not created yet — click the compose area to instantiate it,
-    // then insert after the editor initializes.
-    const area = document.querySelector(
-      '.msg-form__contenteditable, [aria-placeholder^="Write a message"], .msg-form__msg-content-container, .msg-form'
-    )
-    if (area) {
-      if (area.click) area.click()
-      if (area.focus) area.focus()
-      setTimeout(() => {
-        const b = nbScanForBox() || area
-        nbInsert(b, msg.text)
-      }, 150)
-    }
+    // Prefer the box the user focused; otherwise the visible compose editable.
+    const box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
+    if (box) nbInsert(box, msg.text)
   }
 })

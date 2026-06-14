@@ -187,6 +187,7 @@ function nbInjectStyles() {
     #nb-panel .nb-draft:hover { border-color:#c14a1a; }
     #nb-panel .nb-count { display:block; margin-top:6px; font-size:10px; color:#9a8e74; }
     #nb-panel .nb-status { font-size:12px; color:#7a4a20; padding:6px 2px; }
+    #nb-panel .nb-hint { font-size:11px; color:#7a4a20; opacity:0.8; margin-bottom:8px; }
     #nb-panel .nb-refresh { width:100%; background:#2a1810; color:white; border:none; border-radius:8px;
       padding:7px; font-size:12px; cursor:pointer; }
   `
@@ -293,6 +294,10 @@ function nbRender(drafts) {
   if (!nbPanel) return
   const body = nbPanel.querySelector('.nb-body')
   body.innerHTML = ''
+  const hint = document.createElement('div')
+  hint.className = 'nb-hint'
+  hint.textContent = 'Click into the message box, then a draft to paste.'
+  body.appendChild(hint)
   drafts.forEach((d) => {
     const el = document.createElement('div')
     el.className = 'nb-draft'
@@ -300,7 +305,7 @@ function nbRender(drafts) {
     txt.textContent = d
     const meta = document.createElement('span')
     meta.className = 'nb-count'
-    meta.textContent = d.length + ' chars · click to paste'
+    meta.textContent = d.length + ' chars'
     el.appendChild(txt)
     el.appendChild(meta)
     el.onclick = () => {

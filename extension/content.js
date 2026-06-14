@@ -439,6 +439,21 @@ document.addEventListener(
   true
 )
 
+// Reliable zero-click trigger: when the user clicks a "Message" button, a
+// composer is opening — show the panel shortly after.
+document.addEventListener(
+  'click',
+  (e) => {
+    const btn = e.target.closest && e.target.closest('button, a, [role="button"]')
+    if (!btn || (btn.closest && btn.closest('#nb-panel'))) return
+    const label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.innerText || '')).toLowerCase()
+    if (/\bmessage\b/.test(label)) {
+      setTimeout(() => chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' }), 700)
+    }
+  },
+  true
+)
+
 // Messages relayed via the background worker.
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'NB_SHOW_PANEL' && NB_TOP) {

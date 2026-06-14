@@ -431,6 +431,15 @@ document.addEventListener(
     const el = path[0] || e.target
     if (el && el.closest && el.closest('#nb-panel')) return
     if (!nbIsEditable(el) || !nbVisible(el)) return
+    // TEMP diagnostic: log the editable + ancestor chain + which frame.
+    try {
+      let p = el, chain = []
+      for (let i = 0; i < 7 && p; i++) {
+        chain.push(p.tagName + '.' + (p.className || '').toString().slice(0, 45))
+        p = p.parentElement
+      }
+      console.log('[NB] editable frame top=' + NB_TOP + ' | ' + chain.join('  >  '))
+    } catch {}
     nbCurrentBox = el
     chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
   },

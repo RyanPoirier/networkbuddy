@@ -267,8 +267,14 @@ function nbInsert(box, t) {
     sel.addRange(range)
   } catch {}
 
-  // 1) Synthetic paste event — mimics ⌘V exactly, which is the only thing that
-  //    reliably wakes LinkedIn's editor. Most editors read clipboardData here.
+  // 1) execCommand insertText — the path that pastes regular messages in one
+  //    click.
+  try {
+    if (document.execCommand('insertText', false, t) && box.textContent.trim()) return true
+  } catch {}
+
+  // 2) Synthetic paste event — fallback for editors (e.g. InMail) that only
+  //    wake on a real paste.
   try {
     const dt = new DataTransfer()
     dt.setData('text/plain', t)
@@ -276,11 +282,6 @@ function nbInsert(box, t) {
     box.dispatchEvent(ev)
   } catch {}
   if (box.textContent && box.textContent.trim()) return true
-
-  // 2) execCommand insertText.
-  try {
-    if (document.execCommand('insertText', false, t) && box.textContent.trim()) return true
-  } catch {}
 
   // 3) beforeinput/input (Lexical/Draft-style editors).
   try {

@@ -318,14 +318,28 @@ function nbRender(drafts) {
     el.appendChild(txt)
     el.appendChild(meta)
     el.onclick = () => {
-      // Paste — the relay path that worked before. Don't touch focus/clipboard.
-      chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
-      // Save to CRM independently; never let it interfere with the paste.
+      // Insert SYNCHRONOUSLY inside the click so the browser's user-activation
+      // is still live (editors/execCommand need it). Try this frame's box first.
+      let pasted = false
+      const box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
+      if (box) pasted = nbInsertOnce(box, d)
+
+      // If the box is in another frame (InMail iframe) or wasn't ready, relay +
+      // copy to clipboard so ⌘V always works.
+      if (!pasted) {
+        chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
+        try {
+          navigator.clipboard.writeText(d)
+        } catch {}
+      }
+
+      // Save to CRM (independent of paste).
       try {
         chrome.runtime.sendMessage({ type: 'NB_SAVE', payload: { ...nbProfileForSave(), message: d } })
       } catch {}
+
       el.style.borderColor = '#2e7d32'
-      meta.textContent = 'Pasted ✓ · saved to CRM'
+      meta.textContent = pasted ? 'Pasted ✓ · saved to CRM' : 'Copied — press ⌘V · saved to CRM'
     }
     body.appendChild(el)
   })

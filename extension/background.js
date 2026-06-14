@@ -10,7 +10,17 @@ function getSettings() {
   })
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Relay box-focus / paste between frames of the same tab.
+  if (msg.type === 'NB_BOX_FOCUSED' && sender.tab) {
+    chrome.tabs.sendMessage(sender.tab.id, { type: 'NB_SHOW_PANEL' })
+    return
+  }
+  if (msg.type === 'NB_PASTE' && sender.tab) {
+    chrome.tabs.sendMessage(sender.tab.id, { type: 'NB_DO_PASTE', text: msg.text })
+    return
+  }
+
   if (msg.type !== 'GENERATE') return
 
   ;(async () => {

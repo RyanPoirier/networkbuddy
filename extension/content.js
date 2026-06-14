@@ -210,31 +210,26 @@ function nbBuildPanel() {
     '<div class="nb-body"><div class="nb-status">Drafting…</div></div>'
   document.body.appendChild(p)
   p.querySelector('.nb-x').onclick = () => {
-    nbDismissedBox = nbCurrentBox
+    nbActiveKey = null
     nbRemovePanel()
   }
   nbPanel = p
   return p
 }
 
-function nbPosition(box) {
-  if (!nbPanel || !box) return
-  // Inside the composer iframe the box fills the frame, so pin to the top —
-  // anywhere relative to the box gets clipped.
-  if (!NB_TOP) {
-    nbPanel.style.left = '8px'
-    nbPanel.style.top = '8px'
-    return
+function nbPosition() {
+  if (!nbPanel) return
+  // Fixed spot just left of LinkedIn's bottom-right message overlay, so it sits
+  // beside the composer and is never clipped.
+  nbPanel.style.right = '384px'
+  nbPanel.style.bottom = '24px'
+  nbPanel.style.left = 'auto'
+  nbPanel.style.top = 'auto'
+  // On narrow screens, fall back to bottom-right.
+  if (window.innerWidth < 760) {
+    nbPanel.style.right = '12px'
+    nbPanel.style.bottom = '12px'
   }
-  const r = box.getBoundingClientRect()
-  const w = 320
-  let left = r.left
-  if (left + w > window.innerWidth - 8) left = window.innerWidth - w - 8
-  if (left < 8) left = 8
-  let top = r.top - nbPanel.offsetHeight - 10
-  if (top < 8) top = r.bottom + 10 // not enough room above -> place below
-  nbPanel.style.left = Math.round(left) + 'px'
-  nbPanel.style.top = Math.round(top) + 'px'
 }
 
 function nbInsert(box, t) {
@@ -255,7 +250,7 @@ function nbInsert(box, t) {
   }
 }
 
-function nbRender(drafts, box) {
+function nbRender(drafts) {
   if (!nbPanel) return
   const body = nbPanel.querySelector('.nb-body')
   body.innerHTML = ''
@@ -270,7 +265,8 @@ function nbRender(drafts, box) {
     el.appendChild(txt)
     el.appendChild(meta)
     el.onclick = () => {
-      nbInsert(box, d)
+      // Paste is relayed to whichever frame holds the focused message box.
+      chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
       el.style.borderColor = '#2e7d32'
       meta.textContent = 'Pasted ✓'
     }
@@ -279,9 +275,9 @@ function nbRender(drafts, box) {
   const refresh = document.createElement('button')
   refresh.className = 'nb-refresh'
   refresh.textContent = 'Regenerate'
-  refresh.onclick = () => nbGenerate(box, true)
+  refresh.onclick = () => nbGenerate(true)
   body.appendChild(refresh)
-  nbPosition(box)
+  nbPosition()
 }
 
 function nbStatus(msg) {
@@ -302,15 +298,19 @@ function nbRecipientName() {
   return ''
 }
 
-function nbGenerate(box, force) {
+// Only the top frame renders the panel (single panel, always visible).
+function nbGenerate(force) {
+  if (!NB_TOP) return
   nbBuildPanel()
-  nbPosition(box)
+  if (!nbPanel) return
+  nbPosition()
   nbStatus('Drafting…')
 
   nbGetContext((ctx) => {
     const key = ctx.name || location.pathname
+    nbActiveKey = key
     if (!force && nbCache[key]) {
-      nbRender(nbCache[key], box)
+      nbRender(nbCache[key])
       return
     }
     chrome.runtime.sendMessage(
@@ -320,7 +320,7 @@ function nbGenerate(box, force) {
         if (resp.error === 'no-key') return nbStatus('Open the extension and add your key in Settings.')
         if (resp.error) return nbStatus('Error: ' + resp.error)
         nbCache[key] = resp.drafts
-        nbRender(resp.drafts, box)
+        nbRender(resp.drafts)
       }
     )
   })
@@ -334,12 +334,8 @@ function nbIsEditable(el) {
   return false
 }
 
-let nbDismissedBox = null
-
-// Primary trigger: the user focuses an editable (clicks/types in a message or
-// note box). The browser hands us the exact element — no selector guessing.
 // Top frame keeps the stored profile fresh as the user navigates.
-if (NB_TOP) {
+if (NB_TOP && document.body) {
   nbStoreProfile()
   let nbStoreTimer = null
   new MutationObserver(() => {
@@ -348,39 +344,40 @@ if (NB_TOP) {
   }).observe(document.body, { childList: true, subtree: true })
 }
 
+// Each frame watches for an editable being focused. The frame that owns the
+// box remembers it (for paste) and asks the top frame to show the panel.
 document.addEventListener(
   'focusin',
   (e) => {
-    // composedPath()[0] pierces shadow DOM to give the real focused element.
     const path = typeof e.composedPath === 'function' ? e.composedPath() : []
     const el = path[0] || e.target
-    // Ignore focus landing inside our own panel.
     if (el && el.closest && el.closest('#nb-panel')) return
     if (!nbIsEditable(el) || !nbVisible(el)) return
-    if (el === nbDismissedBox) return // user closed it for this box
-
-    const key = nbRecipientName() || getName(getNameEl()) || location.pathname
-    if (el === nbCurrentBox && key === nbActiveKey && nbPanel) return
-
     nbCurrentBox = el
-    nbActiveKey = key
-    nbDismissedBox = null
-    nbGenerate(el, false)
+    chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
   },
   true
 )
 
-// Keep the panel positioned, and remove it when its box disappears.
+// Each frame: drop its box reference when it disappears.
 new MutationObserver(() => {
-  if (!nbCurrentBox) return
-  if (!nbVisible(nbCurrentBox)) {
+  if (nbCurrentBox && !nbVisible(nbCurrentBox)) {
     nbCurrentBox = null
-    nbActiveKey = null
-    nbRemovePanel()
-  } else if (nbPanel) {
-    nbPosition(nbCurrentBox)
+    if (NB_TOP) {
+      nbActiveKey = null
+      nbRemovePanel()
+    }
   }
-}).observe(document.body, { childList: true, subtree: true })
+}).observe(document.body || document.documentElement, { childList: true, subtree: true })
 
-window.addEventListener('scroll', () => nbCurrentBox && nbPosition(nbCurrentBox), true)
-window.addEventListener('resize', () => nbCurrentBox && nbPosition(nbCurrentBox))
+// Messages relayed via the background worker.
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg.type === 'NB_SHOW_PANEL' && NB_TOP) {
+    const key = nbRecipientName() || getName(getNameEl()) || location.pathname
+    if (nbPanel && key === nbActiveKey) return // already showing for this recipient
+    nbGenerate(false)
+  }
+  if (msg.type === 'NB_DO_PASTE') {
+    if (nbCurrentBox && nbVisible(nbCurrentBox)) nbInsert(nbCurrentBox, msg.text)
+  }
+})

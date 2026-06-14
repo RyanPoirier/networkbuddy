@@ -132,20 +132,35 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 // floating panel beside it with 3 drafts, and paste the one you click.
 // ===========================================================================
 
-const NB_BOX_SELECTORS = [
-  '.msg-form__contenteditable',            // messaging compose box
-  'div[role="textbox"][contenteditable="true"]', // overlay / InMail compose
-  '[aria-label^="Write a message"]',       // message placeholder box
-  '[aria-label^="Write a reply"]',
-  'textarea[name="message"]',              // connection note (current)
-  '#custom-message',                       // connection note (legacy id)
-  '.connect-button-send-invite__custom-message textarea',
-]
+const NB_TOP = window.top === window
 
 function nbVisible(el) {
   if (!el) return false
   const r = el.getBoundingClientRect()
   return r.width > 40 && r.height > 15
+}
+
+// The top frame holds the profile. It stashes the current profile context in
+// extension storage so the (iframed) composer can read it.
+function nbStoreProfile() {
+  if (!NB_TOP) return
+  if (!/\/in\//.test(location.pathname)) return
+  const name = getName(getNameEl())
+  if (!name) return
+  chrome.storage.local.set({ nbProfile: { name, text: getProfileText(), ts: Date.now() } })
+}
+
+// Get outreach context: live scrape in the top frame on a profile, otherwise
+// read what the top frame stashed.
+function nbGetContext(cb) {
+  if (NB_TOP && /\/in\//.test(location.pathname)) {
+    cb({ name: getName(getNameEl()) || nbRecipientName(), profileText: getProfileText() })
+    return
+  }
+  chrome.storage.local.get(['nbProfile'], (r) => {
+    const p = (r && r.nbProfile) || {}
+    cb({ name: p.name || nbRecipientName(), profileText: p.text || '' })
+  })
 }
 
 let nbPanel = null
@@ -280,24 +295,26 @@ function nbRecipientName() {
 }
 
 function nbGenerate(box, force) {
-  const name = getName(getNameEl()) || nbRecipientName()
-  const profileText = getProfileText()
-  const key = name || location.pathname
-
   nbBuildPanel()
   nbPosition(box)
-
-  if (!force && nbCache[key]) {
-    nbRender(nbCache[key], box)
-    return
-  }
   nbStatus('Drafting…')
-  chrome.runtime.sendMessage({ type: 'GENERATE', payload: { name, profileText } }, (resp) => {
-    if (chrome.runtime.lastError || !resp) return nbStatus('No response — is the app running?')
-    if (resp.error === 'no-key') return nbStatus('Open the extension and add your key in Settings.')
-    if (resp.error) return nbStatus('Error: ' + resp.error)
-    nbCache[key] = resp.drafts
-    nbRender(resp.drafts, box)
+
+  nbGetContext((ctx) => {
+    const key = ctx.name || location.pathname
+    if (!force && nbCache[key]) {
+      nbRender(nbCache[key], box)
+      return
+    }
+    chrome.runtime.sendMessage(
+      { type: 'GENERATE', payload: { name: ctx.name, profileText: ctx.profileText } },
+      (resp) => {
+        if (chrome.runtime.lastError || !resp) return nbStatus('No response — is the app running?')
+        if (resp.error === 'no-key') return nbStatus('Open the extension and add your key in Settings.')
+        if (resp.error) return nbStatus('Error: ' + resp.error)
+        nbCache[key] = resp.drafts
+        nbRender(resp.drafts, box)
+      }
+    )
   })
 }
 
@@ -313,16 +330,22 @@ let nbDismissedBox = null
 
 // Primary trigger: the user focuses an editable (clicks/types in a message or
 // note box). The browser hands us the exact element — no selector guessing.
-console.log('[NB] content script loaded on', location.href)
+// Top frame keeps the stored profile fresh as the user navigates.
+if (NB_TOP) {
+  nbStoreProfile()
+  let nbStoreTimer = null
+  new MutationObserver(() => {
+    clearTimeout(nbStoreTimer)
+    nbStoreTimer = setTimeout(nbStoreProfile, 800)
+  }).observe(document.body, { childList: true, subtree: true })
+}
 
 document.addEventListener(
   'focusin',
   (e) => {
-    // composedPath()[0] pierces shadow DOM to give the real focused element
-    // (LinkedIn's message composer lives inside a shadow root).
+    // composedPath()[0] pierces shadow DOM to give the real focused element.
     const path = typeof e.composedPath === 'function' ? e.composedPath() : []
     const el = path[0] || e.target
-    console.log('[NB] focusin real:', el && el.tagName, 'editable=', nbIsEditable(el), 'visible=', nbVisible(el))
     // Ignore focus landing inside our own panel.
     if (el && el.closest && el.closest('#nb-panel')) return
     if (!nbIsEditable(el) || !nbVisible(el)) return

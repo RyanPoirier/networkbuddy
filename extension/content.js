@@ -257,37 +257,44 @@ function nbInsert(box, t) {
 
   // contenteditable (LinkedIn's custom message editor)
   box.focus()
-  // Select any existing content so we replace, not append.
+  // Put the caret in the box.
   try {
     const sel = window.getSelection()
     const range = document.createRange()
     range.selectNodeContents(box)
+    range.collapse(false) // caret at the end
     sel.removeAllRanges()
     sel.addRange(range)
   } catch {}
 
-  // 1) execCommand insertText — works with most editors and fires their events.
-  let ok = false
+  // 1) Synthetic paste event — mimics ⌘V exactly, which is the only thing that
+  //    reliably wakes LinkedIn's editor. Most editors read clipboardData here.
   try {
-    ok = document.execCommand('insertText', false, t)
+    const dt = new DataTransfer()
+    dt.setData('text/plain', t)
+    const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })
+    box.dispatchEvent(ev)
   } catch {}
-  if (ok && box.textContent.trim()) return true
+  if (box.textContent && box.textContent.trim()) return true
 
-  // 2) beforeinput/input — modern editors (Lexical/Draft) listen for these.
+  // 2) execCommand insertText.
+  try {
+    if (document.execCommand('insertText', false, t) && box.textContent.trim()) return true
+  } catch {}
+
+  // 3) beforeinput/input (Lexical/Draft-style editors).
   try {
     box.dispatchEvent(
-      new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: t })
+      new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: t })
     )
-    box.dispatchEvent(
-      new InputEvent('input', { bubbles: true, inputType: 'insertText', data: t })
-    )
+    box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: t }))
   } catch {}
-  if (box.textContent.trim()) return true
+  if (box.textContent && box.textContent.trim()) return true
 
-  // 3) Last resort: write text node directly + input event.
+  // 4) Last resort.
   box.textContent = t
   box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: t }))
-  return !!box.textContent.trim()
+  return !!(box.textContent && box.textContent.trim())
 }
 
 function nbRender(drafts) {

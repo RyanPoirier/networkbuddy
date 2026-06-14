@@ -318,8 +318,11 @@ console.log('[NB] content script loaded on', location.href)
 document.addEventListener(
   'focusin',
   (e) => {
-    const el = e.target
-    console.log('[NB] focusin:', el && el.tagName, 'editable=', nbIsEditable(el), 'visible=', nbVisible(el))
+    // composedPath()[0] pierces shadow DOM to give the real focused element
+    // (LinkedIn's message composer lives inside a shadow root).
+    const path = typeof e.composedPath === 'function' ? e.composedPath() : []
+    const el = path[0] || e.target
+    console.log('[NB] focusin real:', el && el.tagName, 'editable=', nbIsEditable(el), 'visible=', nbVisible(el))
     // Ignore focus landing inside our own panel.
     if (el && el.closest && el.closest('#nb-panel')) return
     if (!nbIsEditable(el) || !nbVisible(el)) return

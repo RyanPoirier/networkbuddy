@@ -194,7 +194,7 @@ function nbBuildPanel() {
     '<div class="nb-body"><div class="nb-status">Drafting…</div></div>'
   document.body.appendChild(p)
   p.querySelector('.nb-x').onclick = () => {
-    nbActiveKey = '__dismissed__'
+    nbDismissedBox = nbCurrentBox
     nbRemovePanel()
   }
   nbPanel = p
@@ -301,46 +301,49 @@ function nbGenerate(box, force) {
   })
 }
 
-function nbFindBox() {
-  for (const s of NB_BOX_SELECTORS) {
-    const els = document.querySelectorAll(s)
-    for (const el of els) {
-      if (nbVisible(el)) return el
-    }
-  }
-  return null
+// An element counts as a message box if it's a textarea or a contenteditable.
+function nbIsEditable(el) {
+  if (!el || !el.tagName) return false
+  if (el.tagName === 'TEXTAREA') return true
+  if (el.isContentEditable) return true
+  return false
 }
 
-let nbTimer = null
-function nbWatch() {
-  clearTimeout(nbTimer)
-  nbTimer = setTimeout(() => {
-    const box = nbFindBox()
-    if (!box) {
-      // Box gone: reset everything (also clears a prior dismissal).
-      if (nbCurrentBox || nbActiveKey) {
-        nbCurrentBox = null
-        nbActiveKey = null
-        nbRemovePanel()
-      }
-      return
-    }
+let nbDismissedBox = null
+
+// Primary trigger: the user focuses an editable (clicks/types in a message or
+// note box). The browser hands us the exact element — no selector guessing.
+document.addEventListener(
+  'focusin',
+  (e) => {
+    const el = e.target
+    // Ignore focus landing inside our own panel.
+    if (el && el.closest && el.closest('#nb-panel')) return
+    if (!nbIsEditable(el) || !nbVisible(el)) return
+    if (el === nbDismissedBox) return // user closed it for this box
+
     const key = nbRecipientName() || getName(getNameEl()) || location.pathname
-    if (nbActiveKey === '__dismissed__') return // user closed it; leave closed until box disappears
-    if (key !== nbActiveKey || !nbPanel) {
-      // New recipient (or panel missing): generate once.
-      nbCurrentBox = box
-      nbActiveKey = key
-      nbGenerate(box, false)
-    } else {
-      // Same recipient, panel already up: just keep it positioned.
-      nbCurrentBox = box
-      nbPosition(box)
-    }
-  }, 300)
-}
+    if (el === nbCurrentBox && key === nbActiveKey && nbPanel) return
 
-new MutationObserver(nbWatch).observe(document.body, { childList: true, subtree: true })
+    nbCurrentBox = el
+    nbActiveKey = key
+    nbDismissedBox = null
+    nbGenerate(el, false)
+  },
+  true
+)
+
+// Keep the panel positioned, and remove it when its box disappears.
+new MutationObserver(() => {
+  if (!nbCurrentBox) return
+  if (!nbVisible(nbCurrentBox)) {
+    nbCurrentBox = null
+    nbActiveKey = null
+    nbRemovePanel()
+  } else if (nbPanel) {
+    nbPosition(nbCurrentBox)
+  }
+}).observe(document.body, { childList: true, subtree: true })
+
 window.addEventListener('scroll', () => nbCurrentBox && nbPosition(nbCurrentBox), true)
 window.addEventListener('resize', () => nbCurrentBox && nbPosition(nbCurrentBox))
-nbWatch()

@@ -303,6 +303,9 @@ function nbRender(drafts) {
     meta.textContent = d.length + ' chars · click to paste'
     el.appendChild(txt)
     el.appendChild(meta)
+    // Don't let clicking the draft steal focus from the message box — keeps the
+    // cursor in the editor so the paste lands.
+    el.addEventListener('mousedown', (e) => e.preventDefault())
     el.onclick = () => {
       // Paste is relayed to whichever frame holds the focused message box.
       chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })

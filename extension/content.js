@@ -219,18 +219,29 @@ function nbBuildPanel() {
 
 function nbPosition() {
   if (!nbPanel) return
-  // Fixed spot just left of LinkedIn's bottom-right message overlay, so it sits
-  // beside the composer and is never clipped.
-  nbPanel.style.right = '384px'
-  nbPanel.style.bottom = '24px'
+  const W = 340
+  // Find the message overlay / modal so we can sit just to its LEFT.
+  const overlay = document.querySelector(
+    '[class*="msg-overlay-conversation-bubble"], .msg-overlay-container, .artdeco-modal'
+  )
+  if (overlay) {
+    const r = overlay.getBoundingClientRect()
+    let left = r.left - W - 12
+    if (left < 8) left = 8 // no room on the left: tuck against screen edge
+    nbPanel.style.left = left + 'px'
+    nbPanel.style.right = 'auto'
+    nbPanel.style.bottom = Math.max(12, window.innerHeight - r.bottom) + 'px'
+    nbPanel.style.top = 'auto'
+    return
+  }
+  // Fallback: bottom-right corner.
+  nbPanel.style.right = '16px'
+  nbPanel.style.bottom = '16px'
   nbPanel.style.left = 'auto'
   nbPanel.style.top = 'auto'
-  // On narrow screens, fall back to bottom-right.
-  if (window.innerWidth < 760) {
-    nbPanel.style.right = '12px'
-    nbPanel.style.bottom = '12px'
-  }
 }
+
+window.addEventListener('resize', () => nbPanel && nbPosition())
 
 function nbInsert(box, t) {
   box.focus()

@@ -308,6 +308,9 @@ function nbRender(drafts) {
     meta.textContent = d.length + ' chars'
     el.appendChild(txt)
     el.appendChild(meta)
+    // Prevent the click from stealing focus from the message box, so paste
+    // lands on the first click.
+    el.addEventListener('mousedown', (e) => e.preventDefault())
     el.onclick = () => {
       // Relay paste to the frame with the box, and copy to clipboard as backup.
       chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })

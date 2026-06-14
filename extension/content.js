@@ -188,9 +188,8 @@ function nbBuildPanel() {
   nbRemovePanel()
   const p = document.createElement('div')
   p.id = 'nb-panel'
-  const icon = chrome.runtime.getURL('icons/icon48.png')
   p.innerHTML =
-    '<div class="nb-head"><div class="nb-title"><img src="' + icon + '"/>Network <b>Buddy</b></div>' +
+    '<div class="nb-head"><div class="nb-title">💼 Network <b>Buddy</b></div>' +
     '<button class="nb-x" title="Close">✕</button></div>' +
     '<div class="nb-body"><div class="nb-status">Drafting…</div></div>'
   document.body.appendChild(p)
@@ -317,20 +316,28 @@ function nbWatch() {
   clearTimeout(nbTimer)
   nbTimer = setTimeout(() => {
     const box = nbFindBox()
-    if (box) {
-      const key = nbRecipientName() || getName(getNameEl()) || location.pathname
-      if (box !== nbCurrentBox || key !== nbActiveKey) {
-        if (nbActiveKey === '__dismissed__' && key === nbActiveKey) return
-        nbCurrentBox = box
-        nbActiveKey = key
-        nbGenerate(box, false)
+    if (!box) {
+      // Box gone: reset everything (also clears a prior dismissal).
+      if (nbCurrentBox || nbActiveKey) {
+        nbCurrentBox = null
+        nbActiveKey = null
+        nbRemovePanel()
       }
-    } else if (nbCurrentBox) {
-      nbCurrentBox = null
-      nbActiveKey = null
-      nbRemovePanel()
+      return
     }
-  }, 350)
+    const key = nbRecipientName() || getName(getNameEl()) || location.pathname
+    if (nbActiveKey === '__dismissed__') return // user closed it; leave closed until box disappears
+    if (key !== nbActiveKey || !nbPanel) {
+      // New recipient (or panel missing): generate once.
+      nbCurrentBox = box
+      nbActiveKey = key
+      nbGenerate(box, false)
+    } else {
+      // Same recipient, panel already up: just keep it positioned.
+      nbCurrentBox = box
+      nbPosition(box)
+    }
+  }, 300)
 }
 
 new MutationObserver(nbWatch).observe(document.body, { childList: true, subtree: true })

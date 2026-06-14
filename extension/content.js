@@ -134,26 +134,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 const NB_TOP = window.top === window
 
-// True only while this content script's extension context is still valid. After
-// an extension reload, old injected scripts keep running but chrome.runtime is
-// gone — calling it throws "Extension context invalidated".
-function nbAlive() {
-  try {
-    return !!(chrome && chrome.runtime && chrome.runtime.id)
-  } catch {
-    return false
-  }
-}
-
-// Safe send: never throws on an invalidated context.
-function nbSend(msg, cb) {
-  if (!nbAlive()) return
-  try {
-    if (cb) chrome.runtime.sendMessage(msg, cb)
-    else chrome.runtime.sendMessage(msg)
-  } catch {}
-}
-
 function nbVisible(el) {
   if (!el) return false
   const r = el.getBoundingClientRect()
@@ -163,13 +143,11 @@ function nbVisible(el) {
 // The top frame holds the profile. It stashes the current profile context in
 // extension storage so the (iframed) composer can read it.
 function nbStoreProfile() {
-  if (!NB_TOP || !nbAlive()) return
+  if (!NB_TOP) return
   if (!/\/in\//.test(location.pathname)) return
   const name = getName(getNameEl())
   if (!name) return
-  try {
-    chrome.storage.local.set({ nbProfile: { name, text: getProfileText(), ts: Date.now() } })
-  } catch {}
+  chrome.storage.local.set({ nbProfile: { name, text: getProfileText(), ts: Date.now() } })
 }
 
 // Get outreach context: live scrape in the top frame on a profile, otherwise
@@ -179,18 +157,10 @@ function nbGetContext(cb) {
     cb({ name: getName(getNameEl()) || nbRecipientName(), profileText: getProfileText() })
     return
   }
-  if (!nbAlive()) {
-    cb({ name: nbRecipientName(), profileText: '' })
-    return
-  }
-  try {
-    chrome.storage.local.get(['nbProfile'], (r) => {
-      const p = (r && r.nbProfile) || {}
-      cb({ name: p.name || nbRecipientName(), profileText: p.text || '' })
-    })
-  } catch {
-    cb({ name: nbRecipientName(), profileText: '' })
-  }
+  chrome.storage.local.get(['nbProfile'], (r) => {
+    const p = (r && r.nbProfile) || {}
+    cb({ name: p.name || nbRecipientName(), profileText: p.text || '' })
+  })
 }
 
 let nbPanel = null
@@ -274,7 +244,7 @@ function nbPosition() {
 
 window.addEventListener('resize', () => nbPanel && nbPosition())
 
-function nbInsertOnce(box, t) {
+function nbInsert(box, t) {
   box.focus()
 
   if (box.tagName === 'TEXTAREA' || box.tagName === 'INPUT') {
@@ -287,46 +257,37 @@ function nbInsertOnce(box, t) {
 
   // contenteditable (LinkedIn's custom message editor)
   box.focus()
+  // Select any existing content so we replace, not append.
   try {
     const sel = window.getSelection()
     const range = document.createRange()
     range.selectNodeContents(box)
-    range.collapse(false) // caret at the end
     sel.removeAllRanges()
     sel.addRange(range)
   } catch {}
 
+  // 1) execCommand insertText — works with most editors and fires their events.
+  let ok = false
   try {
-    if (document.execCommand('insertText', false, t) && box.textContent.trim()) return true
+    ok = document.execCommand('insertText', false, t)
   } catch {}
+  if (ok && box.textContent.trim()) return true
 
-  try {
-    const dt = new DataTransfer()
-    dt.setData('text/plain', t)
-    box.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }))
-  } catch {}
-  if (box.textContent && box.textContent.trim()) return true
-
+  // 2) beforeinput/input — modern editors (Lexical/Draft) listen for these.
   try {
     box.dispatchEvent(
-      new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertFromPaste', data: t })
+      new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: t })
     )
-    box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: t }))
+    box.dispatchEvent(
+      new InputEvent('input', { bubbles: true, inputType: 'insertText', data: t })
+    )
   } catch {}
-  return !!(box.textContent && box.textContent.trim())
-}
+  if (box.textContent.trim()) return true
 
-// Focus + attempt, and if the editor wasn't ready, retry a couple of times —
-// this does in one click what previously needed a second click.
-function nbInsert(box, t) {
-  if (!box) return false
-  if (nbInsertOnce(box, t)) return true
-  let tries = 0
-  const timer = setInterval(() => {
-    tries++
-    if (nbInsertOnce(box, t) || tries >= 4) clearInterval(timer)
-  }, 70)
-  return true
+  // 3) Last resort: write text node directly + input event.
+  box.textContent = t
+  box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: t }))
+  return !!box.textContent.trim()
 }
 
 function nbRender(drafts) {
@@ -347,32 +308,14 @@ function nbRender(drafts) {
     meta.textContent = d.length + ' chars'
     el.appendChild(txt)
     el.appendChild(meta)
-    // Keep the message box focused when clicking the draft (don't let the panel
-    // steal focus), so the synchronous insert below hits a focused editor.
-    el.addEventListener('mousedown', (e) => e.preventDefault())
     el.onclick = () => {
-      // Insert SYNCHRONOUSLY inside the click so the browser's user-activation
-      // is still live (editors/execCommand need it). Try this frame's box first.
-      let pasted = false
-      const box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
-      if (box) pasted = nbInsertOnce(box, d)
-
-      // If the box is in another frame (InMail iframe) or wasn't ready, relay +
-      // copy to clipboard so ⌘V always works.
-      if (!pasted) {
-        nbSend({ type: 'NB_PASTE', text: d })
-        try {
-          navigator.clipboard.writeText(d)
-        } catch {}
-      }
-
-      // Save to CRM (independent of paste).
+      // Relay paste to the frame with the box, and copy to clipboard as backup.
+      chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
       try {
-        nbSend({ type: 'NB_SAVE', payload: { ...nbProfileForSave(), message: d } })
+        navigator.clipboard.writeText(d)
       } catch {}
-
       el.style.borderColor = '#2e7d32'
-      meta.textContent = pasted ? 'Pasted ✓ · saved to CRM' : 'Copied — press ⌘V · saved to CRM'
+      meta.textContent = 'Pasted ✓  (or press ⌘V)'
     }
     body.appendChild(el)
   })
@@ -386,19 +329,6 @@ function nbRender(drafts) {
 
 function nbStatus(msg) {
   if (nbPanel) nbPanel.querySelector('.nb-body').innerHTML = '<div class="nb-status">' + msg + '</div>'
-}
-
-// Gather the target's details for saving to the CRM (top frame on a profile).
-function nbProfileForSave() {
-  const nameEl = getNameEl()
-  const name = getName(nameEl) || nbRecipientName()
-  const headline = getHeadline(nameEl, name)
-  return {
-    name,
-    title: headline,
-    company: getCompany(headline),
-    linkedinUrl: /\/in\//.test(location.pathname) ? location.href.split('?')[0] : '',
-  }
 }
 
 function nbRecipientName() {
@@ -430,11 +360,10 @@ function nbGenerate(force) {
       nbRender(nbCache[key])
       return
     }
-    nbSend(
+    chrome.runtime.sendMessage(
       { type: 'GENERATE', payload: { name: ctx.name, profileText: ctx.profileText } },
       (resp) => {
-        if ((chrome.runtime && chrome.runtime.lastError) || !resp)
-          return nbStatus('No response — is the app running?')
+        if (chrome.runtime.lastError || !resp) return nbStatus('No response — is the app running?')
         if (resp.error === 'no-key') return nbStatus('Open the extension and add your key in Settings.')
         if (resp.error) return nbStatus('Error: ' + resp.error)
         nbCache[key] = resp.drafts
@@ -456,15 +385,10 @@ function nbIsEditable(el) {
 if (NB_TOP && document.body) {
   nbStoreProfile()
   let nbStoreTimer = null
-  const nbStoreObserver = new MutationObserver(() => {
-    if (!nbAlive()) {
-      nbStoreObserver.disconnect()
-      return
-    }
+  new MutationObserver(() => {
     clearTimeout(nbStoreTimer)
     nbStoreTimer = setTimeout(nbStoreProfile, 800)
-  })
-  nbStoreObserver.observe(document.body, { childList: true, subtree: true })
+  }).observe(document.body, { childList: true, subtree: true })
 }
 
 // Find a message/note box in THIS frame, without needing focus. Selectors are
@@ -536,28 +460,22 @@ let nbNotifiedOpen = false
 function nbWatchForBox() {
   clearTimeout(nbWatchTimer)
   nbWatchTimer = setTimeout(() => {
-    // Stale script after an extension reload — stop everything.
-    if (!nbAlive()) {
-      nbBoxObserver.disconnect()
-      return
-    }
     const box = nbScanForBox()
     if (box) nbCurrentBox = box
 
     const open = !!(box || nbComposeWindow())
     if (open && !nbNotifiedOpen) {
       nbNotifiedOpen = true
-      nbSend({ type: 'NB_BOX_FOCUSED' })
+      chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
     } else if (!open && nbNotifiedOpen) {
       nbNotifiedOpen = false
       nbCurrentBox = null
-      nbSend({ type: 'NB_BOX_GONE' })
+      chrome.runtime.sendMessage({ type: 'NB_BOX_GONE' })
     }
   }, 250)
 }
 
-const nbBoxObserver = new MutationObserver(nbWatchForBox)
-nbBoxObserver.observe(document.body || document.documentElement, {
+new MutationObserver(nbWatchForBox).observe(document.body || document.documentElement, {
   childList: true,
   subtree: true,
 })
@@ -572,7 +490,7 @@ document.addEventListener(
     if (el && el.closest && el.closest('#nb-panel')) return
     if (!nbIsEditable(el) || !nbVisible(el)) return
     nbCurrentBox = el
-    nbSend({ type: 'NB_BOX_FOCUSED' })
+    chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
   },
   true
 )
@@ -586,7 +504,7 @@ document.addEventListener(
     if (!btn || (btn.closest && btn.closest('#nb-panel'))) return
     const label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.innerText || '')).toLowerCase()
     if (/\bmessage\b/.test(label)) {
-      setTimeout(() => nbSend({ type: 'NB_BOX_FOCUSED' }), 700)
+      setTimeout(() => chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' }), 700)
     }
   },
   true

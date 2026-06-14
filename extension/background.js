@@ -28,21 +28,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.tabs.sendMessage(sender.tab.id, { type: 'NB_DO_PASTE', text: msg.text })
     return
   }
-  if (msg.type === 'NB_SAVE') {
-    ;(async () => {
-      try {
-        const s = await getSettings()
-        if (!s.apiKey) return
-        const base = (s.apiBase || 'http://localhost:3000').replace(/\/$/, '')
-        await fetch(base + '/api/extension/save-contact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-nb-key': s.apiKey },
-          body: JSON.stringify(msg.payload || {}),
-        })
-      } catch {}
-    })()
-    return
-  }
 
   if (msg.type !== 'GENERATE') return
 

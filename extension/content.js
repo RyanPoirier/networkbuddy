@@ -312,8 +312,14 @@ function nbRender(drafts) {
     // lands on the first click.
     el.addEventListener('mousedown', (e) => e.preventDefault())
     el.onclick = () => {
-      // Relay paste to the frame with the box, and copy to clipboard as backup.
-      chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
+      // If the box is in THIS frame, insert directly (synchronous, focus fresh).
+      const localBox = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
+      if (localBox) {
+        nbInsert(localBox, d)
+      } else {
+        // Box is in another frame (e.g. InMail iframe) — relay the paste.
+        chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
+      }
       try {
         navigator.clipboard.writeText(d)
       } catch {}

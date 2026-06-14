@@ -199,6 +199,7 @@ function nbRemovePanel() {
 }
 
 function nbBuildPanel() {
+  if (!document.body) return null
   nbInjectStyles()
   nbRemovePanel()
   const p = document.createElement('div')
@@ -218,6 +219,13 @@ function nbBuildPanel() {
 
 function nbPosition(box) {
   if (!nbPanel || !box) return
+  // Inside the composer iframe the box fills the frame, so pin to the top —
+  // anywhere relative to the box gets clipped.
+  if (!NB_TOP) {
+    nbPanel.style.left = '8px'
+    nbPanel.style.top = '8px'
+    return
+  }
   const r = box.getBoundingClientRect()
   const w = 320
   let left = r.left

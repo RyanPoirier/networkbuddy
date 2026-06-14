@@ -134,6 +134,26 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 const NB_TOP = window.top === window
 
+// True only while this content script's extension context is still valid. After
+// an extension reload, old injected scripts keep running but chrome.runtime is
+// gone — calling it throws "Extension context invalidated".
+function nbAlive() {
+  try {
+    return !!(chrome && chrome.runtime && chrome.runtime.id)
+  } catch {
+    return false
+  }
+}
+
+// Safe send: never throws on an invalidated context.
+function nbSend(msg, cb) {
+  if (!nbAlive()) return
+  try {
+    if (cb) chrome.runtime.sendMessage(msg, cb)
+    else chrome.runtime.sendMessage(msg)
+  } catch {}
+}
+
 function nbVisible(el) {
   if (!el) return false
   const r = el.getBoundingClientRect()
@@ -143,11 +163,13 @@ function nbVisible(el) {
 // The top frame holds the profile. It stashes the current profile context in
 // extension storage so the (iframed) composer can read it.
 function nbStoreProfile() {
-  if (!NB_TOP) return
+  if (!NB_TOP || !nbAlive()) return
   if (!/\/in\//.test(location.pathname)) return
   const name = getName(getNameEl())
   if (!name) return
-  chrome.storage.local.set({ nbProfile: { name, text: getProfileText(), ts: Date.now() } })
+  try {
+    chrome.storage.local.set({ nbProfile: { name, text: getProfileText(), ts: Date.now() } })
+  } catch {}
 }
 
 // Get outreach context: live scrape in the top frame on a profile, otherwise
@@ -157,10 +179,18 @@ function nbGetContext(cb) {
     cb({ name: getName(getNameEl()) || nbRecipientName(), profileText: getProfileText() })
     return
   }
-  chrome.storage.local.get(['nbProfile'], (r) => {
-    const p = (r && r.nbProfile) || {}
-    cb({ name: p.name || nbRecipientName(), profileText: p.text || '' })
-  })
+  if (!nbAlive()) {
+    cb({ name: nbRecipientName(), profileText: '' })
+    return
+  }
+  try {
+    chrome.storage.local.get(['nbProfile'], (r) => {
+      const p = (r && r.nbProfile) || {}
+      cb({ name: p.name || nbRecipientName(), profileText: p.text || '' })
+    })
+  } catch {
+    cb({ name: nbRecipientName(), profileText: '' })
+  }
 }
 
 let nbPanel = null
@@ -327,7 +357,7 @@ function nbRender(drafts) {
       // If the box is in another frame (InMail iframe) or wasn't ready, relay +
       // copy to clipboard so ⌘V always works.
       if (!pasted) {
-        chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
+        nbSend({ type: 'NB_PASTE', text: d })
         try {
           navigator.clipboard.writeText(d)
         } catch {}
@@ -335,7 +365,7 @@ function nbRender(drafts) {
 
       // Save to CRM (independent of paste).
       try {
-        chrome.runtime.sendMessage({ type: 'NB_SAVE', payload: { ...nbProfileForSave(), message: d } })
+        nbSend({ type: 'NB_SAVE', payload: { ...nbProfileForSave(), message: d } })
       } catch {}
 
       el.style.borderColor = '#2e7d32'
@@ -397,10 +427,11 @@ function nbGenerate(force) {
       nbRender(nbCache[key])
       return
     }
-    chrome.runtime.sendMessage(
+    nbSend(
       { type: 'GENERATE', payload: { name: ctx.name, profileText: ctx.profileText } },
       (resp) => {
-        if (chrome.runtime.lastError || !resp) return nbStatus('No response — is the app running?')
+        if ((chrome.runtime && chrome.runtime.lastError) || !resp)
+          return nbStatus('No response — is the app running?')
         if (resp.error === 'no-key') return nbStatus('Open the extension and add your key in Settings.')
         if (resp.error) return nbStatus('Error: ' + resp.error)
         nbCache[key] = resp.drafts
@@ -422,10 +453,15 @@ function nbIsEditable(el) {
 if (NB_TOP && document.body) {
   nbStoreProfile()
   let nbStoreTimer = null
-  new MutationObserver(() => {
+  const nbStoreObserver = new MutationObserver(() => {
+    if (!nbAlive()) {
+      nbStoreObserver.disconnect()
+      return
+    }
     clearTimeout(nbStoreTimer)
     nbStoreTimer = setTimeout(nbStoreProfile, 800)
-  }).observe(document.body, { childList: true, subtree: true })
+  })
+  nbStoreObserver.observe(document.body, { childList: true, subtree: true })
 }
 
 // Find a message/note box in THIS frame, without needing focus. Selectors are
@@ -497,22 +533,28 @@ let nbNotifiedOpen = false
 function nbWatchForBox() {
   clearTimeout(nbWatchTimer)
   nbWatchTimer = setTimeout(() => {
+    // Stale script after an extension reload — stop everything.
+    if (!nbAlive()) {
+      nbBoxObserver.disconnect()
+      return
+    }
     const box = nbScanForBox()
     if (box) nbCurrentBox = box
 
     const open = !!(box || nbComposeWindow())
     if (open && !nbNotifiedOpen) {
       nbNotifiedOpen = true
-      chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
+      nbSend({ type: 'NB_BOX_FOCUSED' })
     } else if (!open && nbNotifiedOpen) {
       nbNotifiedOpen = false
       nbCurrentBox = null
-      chrome.runtime.sendMessage({ type: 'NB_BOX_GONE' })
+      nbSend({ type: 'NB_BOX_GONE' })
     }
   }, 250)
 }
 
-new MutationObserver(nbWatchForBox).observe(document.body || document.documentElement, {
+const nbBoxObserver = new MutationObserver(nbWatchForBox)
+nbBoxObserver.observe(document.body || document.documentElement, {
   childList: true,
   subtree: true,
 })
@@ -527,7 +569,7 @@ document.addEventListener(
     if (el && el.closest && el.closest('#nb-panel')) return
     if (!nbIsEditable(el) || !nbVisible(el)) return
     nbCurrentBox = el
-    chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
+    nbSend({ type: 'NB_BOX_FOCUSED' })
   },
   true
 )
@@ -541,7 +583,7 @@ document.addEventListener(
     if (!btn || (btn.closest && btn.closest('#nb-panel'))) return
     const label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.innerText || '')).toLowerCase()
     if (/\bmessage\b/.test(label)) {
-      setTimeout(() => chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' }), 700)
+      setTimeout(() => nbSend({ type: 'NB_BOX_FOCUSED' }), 700)
     }
   },
   true

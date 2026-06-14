@@ -313,10 +313,13 @@ let nbDismissedBox = null
 
 // Primary trigger: the user focuses an editable (clicks/types in a message or
 // note box). The browser hands us the exact element — no selector guessing.
+console.log('[NB] content script loaded on', location.href)
+
 document.addEventListener(
   'focusin',
   (e) => {
     const el = e.target
+    console.log('[NB] focusin:', el && el.tagName, 'editable=', nbIsEditable(el), 'visible=', nbVisible(el))
     // Ignore focus landing inside our own panel.
     if (el && el.closest && el.closest('#nb-panel')) return
     if (!nbIsEditable(el) || !nbVisible(el)) return

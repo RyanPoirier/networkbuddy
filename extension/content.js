@@ -347,6 +347,9 @@ function nbRender(drafts) {
     meta.textContent = d.length + ' chars'
     el.appendChild(txt)
     el.appendChild(meta)
+    // Keep the message box focused when clicking the draft (don't let the panel
+    // steal focus), so the synchronous insert below hits a focused editor.
+    el.addEventListener('mousedown', (e) => e.preventDefault())
     el.onclick = () => {
       // Insert SYNCHRONOUSLY inside the click so the browser's user-activation
       // is still live (editors/execCommand need it). Try this frame's box first.

@@ -245,20 +245,48 @@ window.addEventListener('resize', () => nbPanel && nbPosition())
 
 function nbInsert(box, t) {
   box.focus()
+
   if (box.tagName === 'TEXTAREA' || box.tagName === 'INPUT') {
     const proto = box.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
     const setter = Object.getOwnPropertyDescriptor(proto, 'value').set
     setter.call(box, t)
     box.dispatchEvent(new Event('input', { bubbles: true }))
-  } else {
-    // contenteditable (LinkedIn messaging editor)
-    document.execCommand('selectAll', false, null)
-    const ok = document.execCommand('insertText', false, t)
-    if (!ok) {
-      box.textContent = t
-      box.dispatchEvent(new InputEvent('input', { bubbles: true }))
-    }
+    return true
   }
+
+  // contenteditable (LinkedIn's custom message editor)
+  box.focus()
+  // Select any existing content so we replace, not append.
+  try {
+    const sel = window.getSelection()
+    const range = document.createRange()
+    range.selectNodeContents(box)
+    sel.removeAllRanges()
+    sel.addRange(range)
+  } catch {}
+
+  // 1) execCommand insertText — works with most editors and fires their events.
+  let ok = false
+  try {
+    ok = document.execCommand('insertText', false, t)
+  } catch {}
+  if (ok && box.textContent.trim()) return true
+
+  // 2) beforeinput/input — modern editors (Lexical/Draft) listen for these.
+  try {
+    box.dispatchEvent(
+      new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: t })
+    )
+    box.dispatchEvent(
+      new InputEvent('input', { bubbles: true, inputType: 'insertText', data: t })
+    )
+  } catch {}
+  if (box.textContent.trim()) return true
+
+  // 3) Last resort: write text node directly + input event.
+  box.textContent = t
+  box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: t }))
+  return !!box.textContent.trim()
 }
 
 function nbRender(drafts) {
@@ -467,17 +495,22 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
   if (msg.type === 'NB_DO_PASTE') {
     let box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
-    if (!box) {
-      // Editable not created yet — focus the compose area to instantiate it.
-      const area = document.querySelector(
-        '.msg-form__contenteditable, [aria-placeholder^="Write a message"], .msg-form'
-      )
-      if (area) {
-        if (area.click) area.click()
-        if (area.focus) area.focus()
-        box = nbScanForBox()
-      }
+    if (box) {
+      nbInsert(box, msg.text)
+      return
     }
-    if (box) nbInsert(box, msg.text)
+    // Editable not created yet — click the compose area to instantiate it,
+    // then insert after the editor initializes.
+    const area = document.querySelector(
+      '.msg-form__contenteditable, [aria-placeholder^="Write a message"], .msg-form__msg-content-container, .msg-form'
+    )
+    if (area) {
+      if (area.click) area.click()
+      if (area.focus) area.focus()
+      setTimeout(() => {
+        const b = nbScanForBox() || area
+        nbInsert(b, msg.text)
+      }, 150)
+    }
   }
 })

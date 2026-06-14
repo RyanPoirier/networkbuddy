@@ -304,10 +304,13 @@ function nbRender(drafts) {
     el.appendChild(txt)
     el.appendChild(meta)
     el.onclick = () => {
-      // Paste is relayed to whichever frame holds the focused message box.
+      // Relay paste to the frame with the box, and copy to clipboard as backup.
       chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
+      try {
+        navigator.clipboard.writeText(d)
+      } catch {}
       el.style.borderColor = '#2e7d32'
-      meta.textContent = 'Pasted ✓'
+      meta.textContent = 'Pasted ✓  (or press ⌘V)'
     }
     body.appendChild(el)
   })
@@ -404,7 +407,22 @@ function nbScanForBox() {
   for (const el of document.querySelectorAll('div[contenteditable="true"], div[role="textbox"][contenteditable]')) {
     if (nbVisible(el) && el.closest && el.closest('[class*="msg-"], [class*="message"]')) return el
   }
-  return null
+  // Last resort (e.g. InMail body, which uses different classes): the largest
+  // visible contenteditable / textbox on the page.
+  let best = null
+  let bestArea = 0
+  const cands = document.querySelectorAll('[contenteditable="true"], [role="textbox"], textarea')
+  for (const el of cands) {
+    if (el.closest && el.closest('#nb-panel')) continue
+    const r = el.getBoundingClientRect()
+    if (r.width < 120 || r.height < 40) continue // skip subject lines / small inputs
+    const area = r.width * r.height
+    if (area > bestArea) {
+      bestArea = area
+      best = el
+    }
+  }
+  return best
 }
 
 // A compose WINDOW exists in the DOM immediately when opened — unlike the

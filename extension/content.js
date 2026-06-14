@@ -522,8 +522,17 @@ chrome.runtime.onMessage.addListener((msg) => {
     nbRemovePanel()
   }
   if (msg.type === 'NB_DO_PASTE') {
-    // Prefer the box the user focused; otherwise the visible compose editable.
-    const box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
-    if (box) nbInsert(box, msg.text)
+    // LinkedIn's editor often ignores the first insert (needs to "wake up").
+    // Retry until the text lands — insert is select-all-and-replace, so this
+    // can't duplicate. This automates what used to need a second click.
+    let tries = 0
+    const attempt = () => {
+      const box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
+      if (box) nbInsert(box, msg.text)
+      tries++
+      const landed = box && box.textContent && box.textContent.trim().length > 0
+      if (!landed && tries < 12) setTimeout(attempt, 60)
+    }
+    attempt()
   }
 })

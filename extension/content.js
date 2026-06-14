@@ -307,8 +307,12 @@ function nbRender(drafts) {
     // cursor in the editor so the paste lands.
     el.addEventListener('mousedown', (e) => e.preventDefault())
     el.onclick = () => {
-      // Paste is relayed to whichever frame holds the focused message box.
-      chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
+      // Insert synchronously inside the click (box still focused, gesture live).
+      let pasted = false
+      const box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
+      if (box) pasted = nbInsert(box, d)
+      // If the box is in another frame, relay it.
+      if (!pasted) chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
       el.style.borderColor = '#2e7d32'
       meta.textContent = 'Pasted ✓'
     }

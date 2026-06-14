@@ -187,7 +187,6 @@ function nbInjectStyles() {
     #nb-panel .nb-draft:hover { border-color:#c14a1a; }
     #nb-panel .nb-count { display:block; margin-top:6px; font-size:10px; color:#9a8e74; }
     #nb-panel .nb-status { font-size:12px; color:#7a4a20; padding:6px 2px; }
-    #nb-panel .nb-hint { font-size:11px; color:#7a4a20; opacity:0.8; margin-bottom:8px; }
     #nb-panel .nb-refresh { width:100%; background:#2a1810; color:white; border:none; border-radius:8px;
       padding:7px; font-size:12px; cursor:pointer; }
   `
@@ -246,58 +245,26 @@ window.addEventListener('resize', () => nbPanel && nbPosition())
 
 function nbInsert(box, t) {
   box.focus()
-
   if (box.tagName === 'TEXTAREA' || box.tagName === 'INPUT') {
     const proto = box.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
     const setter = Object.getOwnPropertyDescriptor(proto, 'value').set
     setter.call(box, t)
     box.dispatchEvent(new Event('input', { bubbles: true }))
-    return true
+  } else {
+    // contenteditable (LinkedIn messaging editor)
+    document.execCommand('selectAll', false, null)
+    const ok = document.execCommand('insertText', false, t)
+    if (!ok) {
+      box.textContent = t
+      box.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    }
   }
-
-  // contenteditable (LinkedIn's custom message editor)
-  box.focus()
-  // Select any existing content so we replace, not append.
-  try {
-    const sel = window.getSelection()
-    const range = document.createRange()
-    range.selectNodeContents(box)
-    sel.removeAllRanges()
-    sel.addRange(range)
-  } catch {}
-
-  // 1) execCommand insertText — works with most editors and fires their events.
-  let ok = false
-  try {
-    ok = document.execCommand('insertText', false, t)
-  } catch {}
-  if (ok && box.textContent.trim()) return true
-
-  // 2) beforeinput/input — modern editors (Lexical/Draft) listen for these.
-  try {
-    box.dispatchEvent(
-      new InputEvent('beforeinput', { bubbles: true, cancelable: true, inputType: 'insertText', data: t })
-    )
-    box.dispatchEvent(
-      new InputEvent('input', { bubbles: true, inputType: 'insertText', data: t })
-    )
-  } catch {}
-  if (box.textContent.trim()) return true
-
-  // 3) Last resort: write text node directly + input event.
-  box.textContent = t
-  box.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: t }))
-  return !!box.textContent.trim()
 }
 
 function nbRender(drafts) {
   if (!nbPanel) return
   const body = nbPanel.querySelector('.nb-body')
   body.innerHTML = ''
-  const hint = document.createElement('div')
-  hint.className = 'nb-hint'
-  hint.textContent = 'Click into the message box, then a draft to paste.'
-  body.appendChild(hint)
   drafts.forEach((d) => {
     const el = document.createElement('div')
     el.className = 'nb-draft'
@@ -305,20 +272,14 @@ function nbRender(drafts) {
     txt.textContent = d
     const meta = document.createElement('span')
     meta.className = 'nb-count'
-    meta.textContent = d.length + ' chars'
+    meta.textContent = d.length + ' chars · click to paste'
     el.appendChild(txt)
     el.appendChild(meta)
-    // Keep the cursor in the message box when clicking a draft (don't let the
-    // panel take focus), so the paste lands on the first click.
-    el.addEventListener('mousedown', (e) => e.preventDefault())
     el.onclick = () => {
-      // Relay paste to the frame with the box, and copy to clipboard as backup.
+      // Paste is relayed to whichever frame holds the focused message box.
       chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
-      try {
-        navigator.clipboard.writeText(d)
-      } catch {}
       el.style.borderColor = '#2e7d32'
-      meta.textContent = 'Pasted ✓  (or press ⌘V)'
+      meta.textContent = 'Pasted ✓'
     }
     body.appendChild(el)
   })
@@ -394,97 +355,8 @@ if (NB_TOP && document.body) {
   }).observe(document.body, { childList: true, subtree: true })
 }
 
-// Find a message/note box in THIS frame, without needing focus. Selectors are
-// frame-scoped to avoid false positives (the composer body is iframed; the
-// connection-note textarea lives in the top frame).
-function nbScanForBox() {
-  // Iterate matches and return the first VISIBLE one — there can be several
-  // (e.g. the hidden messaging-dock editable plus the open compose window).
-  const sels = [
-    '.msg-form__contenteditable',
-    '[aria-placeholder^="Write a message"]',
-    'textarea[name="message"]',
-    '#custom-message',
-  ]
-  for (const s of sels) {
-    for (const el of document.querySelectorAll(s)) {
-      if (nbVisible(el)) return el
-    }
-  }
-  // Generic editable inside a messaging container.
-  for (const el of document.querySelectorAll('div[contenteditable="true"], div[role="textbox"][contenteditable]')) {
-    if (nbVisible(el) && el.closest && el.closest('[class*="msg-"], [class*="message"]')) return el
-  }
-  // Last resort (e.g. InMail body, which uses different classes): the largest
-  // visible contenteditable / textbox on the page.
-  let best = null
-  let bestArea = 0
-  const cands = document.querySelectorAll('[contenteditable="true"], [role="textbox"], textarea')
-  for (const el of cands) {
-    if (el.closest && el.closest('#nb-panel')) continue
-    const r = el.getBoundingClientRect()
-    if (r.width < 120 || r.height < 40) continue // skip subject lines / small inputs
-    const area = r.width * r.height
-    if (area > bestArea) {
-      bestArea = area
-      best = el
-    }
-  }
-  return best
-}
-
-// A compose WINDOW exists in the DOM immediately when opened — unlike the
-// editable, which LinkedIn creates lazily on focus. The window may be in an
-// iframe, so this runs in every frame and the owning frame notifies the top.
-function nbComposeWindow() {
-  // Iterate each selector's matches and return the first VISIBLE one — the
-  // always-present messaging dock has hidden copies that must be skipped.
-  const sels = [
-    '.msg-overlay-conversation-bubble__content-wrap', // open compose/convo window
-    'form.msg-form',
-    '[class*="msg-form__msg-content-container"]',
-    '[aria-placeholder^="Write a message"]',
-    'textarea[name="message"]', // connection note
-    '#custom-message',
-  ]
-  for (const s of sels) {
-    const els = document.querySelectorAll(s)
-    for (const el of els) {
-      if (nbVisible(el)) return el
-    }
-  }
-  return null
-}
-
-// Each frame watches: notify the top frame when a compose window opens/closes,
-// and keep this frame's paste target current.
-let nbWatchTimer = null
-let nbNotifiedOpen = false
-function nbWatchForBox() {
-  clearTimeout(nbWatchTimer)
-  nbWatchTimer = setTimeout(() => {
-    const box = nbScanForBox()
-    if (box) nbCurrentBox = box
-
-    const open = !!(box || nbComposeWindow())
-    if (open && !nbNotifiedOpen) {
-      nbNotifiedOpen = true
-      chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
-    } else if (!open && nbNotifiedOpen) {
-      nbNotifiedOpen = false
-      nbCurrentBox = null
-      chrome.runtime.sendMessage({ type: 'NB_BOX_GONE' })
-    }
-  }, 250)
-}
-
-new MutationObserver(nbWatchForBox).observe(document.body || document.documentElement, {
-  childList: true,
-  subtree: true,
-})
-nbWatchForBox()
-
-// Focus is still a useful signal (ensures the right frame owns the paste target).
+// Each frame watches for an editable being focused. The frame that owns the
+// box remembers it (for paste) and asks the top frame to show the panel.
 document.addEventListener(
   'focusin',
   (e) => {
@@ -498,20 +370,16 @@ document.addEventListener(
   true
 )
 
-// Reliable zero-click trigger: when the user clicks a "Message" button, a
-// composer is opening — show the panel shortly after.
-document.addEventListener(
-  'click',
-  (e) => {
-    const btn = e.target.closest && e.target.closest('button, a, [role="button"]')
-    if (!btn || (btn.closest && btn.closest('#nb-panel'))) return
-    const label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.innerText || '')).toLowerCase()
-    if (/\bmessage\b/.test(label)) {
-      setTimeout(() => chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' }), 700)
+// Each frame: drop its box reference when it disappears.
+new MutationObserver(() => {
+  if (nbCurrentBox && !nbVisible(nbCurrentBox)) {
+    nbCurrentBox = null
+    if (NB_TOP) {
+      nbActiveKey = null
+      nbRemovePanel()
     }
-  },
-  true
-)
+  }
+}).observe(document.body || document.documentElement, { childList: true, subtree: true })
 
 // Messages relayed via the background worker.
 chrome.runtime.onMessage.addListener((msg) => {
@@ -520,13 +388,7 @@ chrome.runtime.onMessage.addListener((msg) => {
     if (nbPanel && key === nbActiveKey) return // already showing for this recipient
     nbGenerate(false)
   }
-  if (msg.type === 'NB_HIDE_PANEL' && NB_TOP) {
-    nbActiveKey = null
-    nbRemovePanel()
-  }
   if (msg.type === 'NB_DO_PASTE') {
-    // Prefer the box the user focused; otherwise the visible compose editable.
-    const box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
-    if (box) nbInsert(box, msg.text)
+    if (nbCurrentBox && nbVisible(nbCurrentBox)) nbInsert(nbCurrentBox, msg.text)
   }
 })

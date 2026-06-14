@@ -374,37 +374,45 @@ function nbScanForBox() {
   return null
 }
 
-// A compose WINDOW (conversation bubble or connection-note modal) exists in the
-// DOM immediately when opened — unlike the editable, which LinkedIn creates
-// lazily on focus. We trigger the panel on the window, not the editable.
+// A compose WINDOW exists in the DOM immediately when opened — unlike the
+// editable, which LinkedIn creates lazily on focus. The window may be in an
+// iframe, so this runs in every frame and the owning frame notifies the top.
 function nbComposeWindow() {
+  // message form / placeholder (the compose UI, present before focus)
+  const form = document.querySelector(
+    '.msg-form, [class*="msg-form"], [aria-placeholder^="Write a message"], [aria-label^="Write a message"]'
+  )
+  if (form && nbVisible(form)) return form
+  // connection-note modal
+  const note = document.querySelector('textarea[name="message"], #custom-message')
+  if (note && nbVisible(note)) return note
+  // large conversation bubble (when the whole window is top-frame)
   const bubble = document.querySelectorAll('[class*="msg-overlay-conversation-bubble"]')
   for (const b of bubble) {
     const r = b.getBoundingClientRect()
     if (r.height > 200 && r.width > 200) return b
   }
-  const note = document.querySelector('textarea[name="message"], #custom-message')
-  if (note && nbVisible(note)) return note
   return null
 }
 
-// Watch this frame: keep the paste target current, and (top frame) show/hide
-// the panel based on whether a compose window is open.
+// Each frame watches: notify the top frame when a compose window opens/closes,
+// and keep this frame's paste target current.
 let nbWatchTimer = null
+let nbNotifiedOpen = false
 function nbWatchForBox() {
   clearTimeout(nbWatchTimer)
   nbWatchTimer = setTimeout(() => {
     const box = nbScanForBox()
-    if (box) nbCurrentBox = box // remember paste target if the editable exists
+    if (box) nbCurrentBox = box
 
-    if (NB_TOP) {
-      const open = nbComposeWindow()
-      if (open && !nbPanel) {
-        nbGenerate(false)
-      } else if (!open && nbPanel) {
-        nbActiveKey = null
-        nbRemovePanel()
-      }
+    const open = !!(box || nbComposeWindow())
+    if (open && !nbNotifiedOpen) {
+      nbNotifiedOpen = true
+      chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
+    } else if (!open && nbNotifiedOpen) {
+      nbNotifiedOpen = false
+      nbCurrentBox = null
+      chrome.runtime.sendMessage({ type: 'NB_BOX_GONE' })
     }
   }, 250)
 }
@@ -442,6 +450,17 @@ chrome.runtime.onMessage.addListener((msg) => {
   }
   if (msg.type === 'NB_DO_PASTE') {
     let box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
+    if (!box) {
+      // Editable not created yet — focus the compose area to instantiate it.
+      const area = document.querySelector(
+        '.msg-form__contenteditable, [aria-placeholder^="Write a message"], .msg-form'
+      )
+      if (area) {
+        if (area.click) area.click()
+        if (area.focus) area.focus()
+        box = nbScanForBox()
+      }
+    }
     if (box) nbInsert(box, msg.text)
   }
 })

@@ -315,23 +315,13 @@ function nbRender(drafts) {
     meta.textContent = d.length + ' chars'
     el.appendChild(txt)
     el.appendChild(meta)
-    // Prevent the click from stealing focus from the message box, so paste
-    // lands on the first click.
-    el.addEventListener('mousedown', (e) => e.preventDefault())
     el.onclick = () => {
-      // If the box is in THIS frame, insert directly (synchronous, focus fresh).
-      const localBox = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
-      if (localBox) {
-        nbInsert(localBox, d)
-      } else {
-        // Box is in another frame (e.g. InMail iframe) — relay the paste.
-        chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
-      }
+      // Paste — the relay path that worked before. Don't touch focus/clipboard.
+      chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
+      // Save to CRM independently; never let it interfere with the paste.
       try {
-        navigator.clipboard.writeText(d)
+        chrome.runtime.sendMessage({ type: 'NB_SAVE', payload: { ...nbProfileForSave(), message: d } })
       } catch {}
-      // Save this person to the CRM and log the message.
-      chrome.runtime.sendMessage({ type: 'NB_SAVE', payload: { ...nbProfileForSave(), message: d } })
       el.style.borderColor = '#2e7d32'
       meta.textContent = 'Pasted ✓ · saved to CRM'
     }

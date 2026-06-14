@@ -378,19 +378,21 @@ function nbScanForBox() {
 // editable, which LinkedIn creates lazily on focus. The window may be in an
 // iframe, so this runs in every frame and the owning frame notifies the top.
 function nbComposeWindow() {
-  // message form / placeholder (the compose UI, present before focus)
-  const form = document.querySelector(
-    '.msg-form, [class*="msg-form"], [aria-placeholder^="Write a message"], [aria-label^="Write a message"]'
-  )
-  if (form && nbVisible(form)) return form
-  // connection-note modal
-  const note = document.querySelector('textarea[name="message"], #custom-message')
-  if (note && nbVisible(note)) return note
-  // large conversation bubble (when the whole window is top-frame)
-  const bubble = document.querySelectorAll('[class*="msg-overlay-conversation-bubble"]')
-  for (const b of bubble) {
-    const r = b.getBoundingClientRect()
-    if (r.height > 200 && r.width > 200) return b
+  // Iterate each selector's matches and return the first VISIBLE one — the
+  // always-present messaging dock has hidden copies that must be skipped.
+  const sels = [
+    '.msg-overlay-conversation-bubble__content-wrap', // open compose/convo window
+    'form.msg-form',
+    '[class*="msg-form__msg-content-container"]',
+    '[aria-placeholder^="Write a message"]',
+    'textarea[name="message"]', // connection note
+    '#custom-message',
+  ]
+  for (const s of sels) {
+    const els = document.querySelectorAll(s)
+    for (const el of els) {
+      if (nbVisible(el)) return el
+    }
   }
   return null
 }
@@ -431,15 +433,6 @@ document.addEventListener(
     const el = path[0] || e.target
     if (el && el.closest && el.closest('#nb-panel')) return
     if (!nbIsEditable(el) || !nbVisible(el)) return
-    // TEMP diagnostic: log the editable + ancestor chain + which frame.
-    try {
-      let p = el, chain = []
-      for (let i = 0; i < 7 && p; i++) {
-        chain.push(p.tagName + '.' + (p.className || '').toString().slice(0, 45))
-        p = p.parentElement
-      }
-      console.log('[NB] editable frame top=' + NB_TOP + ' | ' + chain.join('  >  '))
-    } catch {}
     nbCurrentBox = el
     chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
   },

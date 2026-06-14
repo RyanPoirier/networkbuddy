@@ -98,14 +98,12 @@ function getAbout() {
   return ''
 }
 
-// Grab the raw text of the top card as a fallback context blob, so Claude can
-// read role/company even if precise field extraction misses.
-function getTopCardText(nameEl) {
-  const card = getTopCard(nameEl)
-  if (card && card.innerText) {
-    return clean(card.innerText).slice(0, 600)
-  }
-  return ''
+// Bulletproof context: grab the whole main profile area's text. Claude reads
+// it to infer role/company/school regardless of LinkedIn's exact DOM.
+function getProfileText() {
+  const main = document.querySelector('main')
+  const raw = main ? main.innerText : document.body.innerText
+  return clean(raw).slice(0, 2000)
 }
 
 function scrapeProfile() {
@@ -117,7 +115,7 @@ function scrapeProfile() {
     headline,
     company: getCompany(headline),
     about: getAbout(),
-    topCardText: getTopCardText(nameEl),
+    topCardText: getProfileText(),
     profileUrl: location.href.split('?')[0],
   }
 }

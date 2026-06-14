@@ -355,8 +355,47 @@ if (NB_TOP && document.body) {
   }).observe(document.body, { childList: true, subtree: true })
 }
 
-// Each frame watches for an editable being focused. The frame that owns the
-// box remembers it (for paste) and asks the top frame to show the panel.
+// Find a message/note box in THIS frame, without needing focus. Selectors are
+// frame-scoped to avoid false positives (the composer body is iframed; the
+// connection-note textarea lives in the top frame).
+function nbScanForBox() {
+  const sels = NB_TOP
+    ? ['textarea[name="message"]', '#custom-message', '.connect-button-send-invite__custom-message textarea']
+    : ['.msg-form__contenteditable', 'div[role="textbox"][contenteditable="true"]', 'div[contenteditable="true"]', 'textarea']
+  for (const s of sels) {
+    const els = document.querySelectorAll(s)
+    for (const el of els) {
+      if (nbIsEditable(el) && nbVisible(el)) return el
+    }
+  }
+  return null
+}
+
+// Watch this frame for the box appearing/disappearing and notify the top frame.
+let nbWatchTimer = null
+function nbWatchForBox() {
+  clearTimeout(nbWatchTimer)
+  nbWatchTimer = setTimeout(() => {
+    const box = nbScanForBox()
+    if (box) {
+      if (box !== nbCurrentBox) {
+        nbCurrentBox = box
+        chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' }) // -> top frame shows panel
+      }
+    } else if (nbCurrentBox) {
+      nbCurrentBox = null
+      chrome.runtime.sendMessage({ type: 'NB_BOX_GONE' })
+    }
+  }, 250)
+}
+
+new MutationObserver(nbWatchForBox).observe(document.body || document.documentElement, {
+  childList: true,
+  subtree: true,
+})
+nbWatchForBox()
+
+// Focus is still a useful signal (ensures the right frame owns the paste target).
 document.addEventListener(
   'focusin',
   (e) => {
@@ -370,23 +409,16 @@ document.addEventListener(
   true
 )
 
-// Each frame: drop its box reference when it disappears.
-new MutationObserver(() => {
-  if (nbCurrentBox && !nbVisible(nbCurrentBox)) {
-    nbCurrentBox = null
-    if (NB_TOP) {
-      nbActiveKey = null
-      nbRemovePanel()
-    }
-  }
-}).observe(document.body || document.documentElement, { childList: true, subtree: true })
-
 // Messages relayed via the background worker.
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'NB_SHOW_PANEL' && NB_TOP) {
     const key = nbRecipientName() || getName(getNameEl()) || location.pathname
     if (nbPanel && key === nbActiveKey) return // already showing for this recipient
     nbGenerate(false)
+  }
+  if (msg.type === 'NB_HIDE_PANEL' && NB_TOP) {
+    nbActiveKey = null
+    nbRemovePanel()
   }
   if (msg.type === 'NB_DO_PASTE') {
     if (nbCurrentBox && nbVisible(nbCurrentBox)) nbInsert(nbCurrentBox, msg.text)

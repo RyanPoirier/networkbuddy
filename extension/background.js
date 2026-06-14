@@ -16,6 +16,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     chrome.tabs.sendMessage(sender.tab.id, { type: 'NB_SHOW_PANEL' })
     return
   }
+  if (msg.type === 'NB_BOX_GONE' && sender.tab) {
+    chrome.tabs.sendMessage(sender.tab.id, { type: 'NB_HIDE_PANEL' })
+    return
+  }
   if (msg.type === 'NB_PASTE' && sender.tab) {
     chrome.tabs.sendMessage(sender.tab.id, { type: 'NB_DO_PASTE', text: msg.text })
     return

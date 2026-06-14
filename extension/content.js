@@ -387,17 +387,22 @@ if (NB_TOP && document.body) {
 // frame-scoped to avoid false positives (the composer body is iframed; the
 // connection-note textarea lives in the top frame).
 function nbScanForBox() {
-  // Explicit message / connection-note boxes (work in any frame).
-  const direct = document.querySelector(
-    '.msg-form__contenteditable, [aria-label^="Write a message"], [aria-placeholder^="Write a message"], textarea[name="message"], #custom-message'
-  )
-  if (direct && nbVisible(direct)) return direct
-  // Generic editable, but only if it sits inside a messaging container — avoids
-  // matching post/comment composers elsewhere on the page.
-  const ces = document.querySelectorAll('div[contenteditable="true"], div[role="textbox"][contenteditable]')
-  for (const el of ces) {
-    if (!nbVisible(el)) continue
-    if (el.closest && el.closest('[class*="msg-"], [class*="message"], [class*="compose"]')) return el
+  // Iterate matches and return the first VISIBLE one — there can be several
+  // (e.g. the hidden messaging-dock editable plus the open compose window).
+  const sels = [
+    '.msg-form__contenteditable',
+    '[aria-placeholder^="Write a message"]',
+    'textarea[name="message"]',
+    '#custom-message',
+  ]
+  for (const s of sels) {
+    for (const el of document.querySelectorAll(s)) {
+      if (nbVisible(el)) return el
+    }
+  }
+  // Generic editable inside a messaging container.
+  for (const el of document.querySelectorAll('div[contenteditable="true"], div[role="textbox"][contenteditable]')) {
+    if (nbVisible(el) && el.closest && el.closest('[class*="msg-"], [class*="message"]')) return el
   }
   return null
 }
@@ -494,29 +499,8 @@ chrome.runtime.onMessage.addListener((msg) => {
     nbRemovePanel()
   }
   if (msg.type === 'NB_DO_PASTE') {
+    // Prefer the box the user focused; otherwise the visible compose editable.
     const box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
-    if (box) {
-      nbInsert(box, msg.text)
-      return
-    }
-    // Editable not created yet — simulate a real click on the compose area to
-    // make LinkedIn instantiate + focus its editor, then insert.
-    const area = document.querySelector(
-      '.msg-form__msg-content-container--scrollable, .msg-form__msg-content-container, [aria-placeholder^="Write a message"], .msg-form'
-    )
-    if (area) {
-      const r = area.getBoundingClientRect()
-      const opts = { bubbles: true, cancelable: true, view: window, clientX: r.left + 20, clientY: r.top + 20 }
-      area.dispatchEvent(new MouseEvent('mousedown', opts))
-      area.dispatchEvent(new MouseEvent('mouseup', opts))
-      area.dispatchEvent(new MouseEvent('click', opts))
-      setTimeout(() => {
-        const editable = document.querySelector('.msg-form__contenteditable') || nbScanForBox()
-        if (editable) {
-          editable.focus()
-          nbInsert(editable, msg.text)
-        }
-      }, 200)
-    }
+    if (box) nbInsert(box, msg.text)
   }
 })

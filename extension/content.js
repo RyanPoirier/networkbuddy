@@ -494,23 +494,29 @@ chrome.runtime.onMessage.addListener((msg) => {
     nbRemovePanel()
   }
   if (msg.type === 'NB_DO_PASTE') {
-    let box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
+    const box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbScanForBox()
     if (box) {
       nbInsert(box, msg.text)
       return
     }
-    // Editable not created yet — click the compose area to instantiate it,
-    // then insert after the editor initializes.
+    // Editable not created yet — simulate a real click on the compose area to
+    // make LinkedIn instantiate + focus its editor, then insert.
     const area = document.querySelector(
-      '.msg-form__contenteditable, [aria-placeholder^="Write a message"], .msg-form__msg-content-container, .msg-form'
+      '.msg-form__msg-content-container--scrollable, .msg-form__msg-content-container, [aria-placeholder^="Write a message"], .msg-form'
     )
     if (area) {
-      if (area.click) area.click()
-      if (area.focus) area.focus()
+      const r = area.getBoundingClientRect()
+      const opts = { bubbles: true, cancelable: true, view: window, clientX: r.left + 20, clientY: r.top + 20 }
+      area.dispatchEvent(new MouseEvent('mousedown', opts))
+      area.dispatchEvent(new MouseEvent('mouseup', opts))
+      area.dispatchEvent(new MouseEvent('click', opts))
       setTimeout(() => {
-        const b = nbScanForBox() || area
-        nbInsert(b, msg.text)
-      }, 150)
+        const editable = document.querySelector('.msg-form__contenteditable') || nbScanForBox()
+        if (editable) {
+          editable.focus()
+          nbInsert(editable, msg.text)
+        }
+      }, 200)
     }
   }
 })

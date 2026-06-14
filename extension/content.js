@@ -243,6 +243,25 @@ function nbPosition() {
 
 window.addEventListener('resize', () => nbPanel && nbPosition())
 
+// Synchronously copy text to the clipboard via a temp textarea (works inside a
+// user gesture without async permissions).
+function nbCopyToClipboard(t) {
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = t
+    ta.style.position = 'fixed'
+    ta.style.top = '-9999px'
+    ta.style.opacity = '0'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+    return true
+  } catch {
+    return false
+  }
+}
+
 function nbInsert(box, t) {
   box.focus()
 
@@ -263,6 +282,16 @@ function nbInsert(box, t) {
     range.selectNodeContents(box)
     sel.removeAllRanges()
     sel.addRange(range)
+  } catch {}
+
+  // 0) Real paste pipeline — copy text, then execCommand('paste') fires a
+  //    genuine (trusted) paste, exactly like ⌘V, which is the only thing this
+  //    editor reliably accepts. Requires clipboardRead/Write permissions.
+  try {
+    if (nbCopyToClipboard(t)) {
+      box.focus()
+      if (document.execCommand('paste') && box.textContent.trim()) return true
+    }
   } catch {}
 
   // 1) execCommand insertText — works with most editors and fires their events.

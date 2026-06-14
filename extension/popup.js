@@ -100,6 +100,7 @@ els.generate.onclick = async () => {
         headline: profile.headline,
         company: profile.company,
         about: profile.about,
+        topCardText: profile.topCardText || '',
         studentName: s.studentName || '',
         studentSchool: s.studentSchool || '',
         studentProgram: s.studentProgram || '',

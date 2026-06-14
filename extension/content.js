@@ -98,6 +98,16 @@ function getAbout() {
   return ''
 }
 
+// Grab the raw text of the top card as a fallback context blob, so Claude can
+// read role/company even if precise field extraction misses.
+function getTopCardText(nameEl) {
+  const card = getTopCard(nameEl)
+  if (card && card.innerText) {
+    return clean(card.innerText).slice(0, 600)
+  }
+  return ''
+}
+
 function scrapeProfile() {
   const nameEl = getNameEl()
   const name = getName(nameEl)
@@ -107,6 +117,7 @@ function scrapeProfile() {
     headline,
     company: getCompany(headline),
     about: getAbout(),
+    topCardText: getTopCardText(nameEl),
     profileUrl: location.href.split('?')[0],
   }
 }

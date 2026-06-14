@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
     headline = '',
     company = '',
     about = '',
+    topCardText = '',
     studentName = '',
     studentSchool = '',
     studentProgram = '',
@@ -40,18 +41,23 @@ Student:
 - School: ${studentSchool || '(unspecified)'}
 - Program: ${studentProgram || '(unspecified)'}
 
-Person they're reaching out to (from their LinkedIn profile):
+Person they're reaching out to (scraped from their LinkedIn profile):
 - Name: ${name}
-- Headline: ${headline}
-- Company: ${company}
-- About: ${about.slice(0, 600)}
+- Headline: ${headline || '(not captured)'}
+- Company: ${company || '(not captured)'}
+- About: ${about ? about.slice(0, 600) : '(not captured)'}
+- Raw profile top-card text: ${topCardText || '(not captured)'}
+
+Use the raw top-card text to infer their role, company, school, or focus if the structured fields above are missing.
 
 Write 3 distinct LinkedIn connection request notes. Each must:
 - Be under 300 characters (LinkedIn's hard limit)
-- Reference something specific about this person's role or company
+- Reference something SPECIFIC about this person (their actual role, company, school, or field) — never vague filler like "your field" or "your industry"
 - Sound genuine and human, not templated or salesy
 - End with a soft ask to connect or chat briefly
-- Vary in angle: e.g. one curious/learning-focused, one shared-background, one direct-and-warm
+- Vary in angle: one curious/learning-focused, one shared-background, one direct-and-warm
+
+If you genuinely cannot determine anything specific about the person, still write warm notes but reference whatever concrete detail is available (their name, school, location).
 
 Return ONLY JSON:
 { "drafts": ["...", "...", "..."] }`

@@ -266,6 +266,7 @@ function nbCopyToClipboard(t) {
 
 function nbInsert(box, t) {
   box.focus()
+  console.log('[NB] nbInsert tag=', box.tagName, 'top=', NB_TOP, 'ce=', box.isContentEditable)
   if (box.tagName === 'TEXTAREA' || box.tagName === 'INPUT') {
     const proto = box.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype
     const setter = Object.getOwnPropertyDescriptor(proto, 'value').set
@@ -275,6 +276,7 @@ function nbInsert(box, t) {
     // contenteditable (LinkedIn messaging editor)
     document.execCommand('selectAll', false, null)
     const ok = document.execCommand('insertText', false, t)
+    console.log('[NB] execCommand ok=', ok, 'resultLen=', (box.textContent || '').trim().length)
     if (!ok) {
       box.textContent = t
       box.dispatchEvent(new InputEvent('input', { bubbles: true }))
@@ -288,6 +290,7 @@ function nbInsert(box, t) {
 // the rare miss.
 function nbInsertRetry(box, t) {
   if (!box) return
+  console.log('[NB] nbInsertRetry start, box=', box.tagName)
   setTimeout(() => {
     box.focus()
     nbInsert(box, t)
@@ -296,6 +299,7 @@ function nbInsertRetry(box, t) {
         box.tagName === 'TEXTAREA' || box.tagName === 'INPUT'
           ? (box.value || '').trim().length > 0
           : (box.textContent || '').trim().length > 0
+      console.log('[NB] after first insert, landed=', landed)
       if (!landed) {
         box.focus()
         nbInsert(box, t)
@@ -319,11 +323,13 @@ function nbRender(drafts) {
     el.appendChild(txt)
     el.appendChild(meta)
     el.onclick = () => {
+      console.log('[NB] draft clicked. top-frame nbCurrentBox=', nbCurrentBox && nbCurrentBox.tagName, 'visible=', nbCurrentBox && nbVisible(nbCurrentBox))
       // Auto-paste into the box (no clipboard copy here — selecting a temp
       // textarea would steal focus from the message box and break the paste).
       if (nbCurrentBox && nbVisible(nbCurrentBox)) {
         nbInsertRetry(nbCurrentBox, d)
       } else {
+        console.log('[NB] no top-frame box -> broadcasting to iframes')
         document.querySelectorAll('iframe').forEach((f) => {
           try {
             f.contentWindow.postMessage({ __nb: true, type: 'NB_DO_PASTE', text: d }, '*')

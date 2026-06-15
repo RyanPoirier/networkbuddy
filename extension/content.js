@@ -357,22 +357,29 @@ if (NB_TOP && document.body) {
 
 // Each frame watches for an editable being focused. The frame that owns the
 // box remembers it (for paste) and asks the top frame to show the panel.
-console.log('[NB] content script LOADED on', location.href)
+let nbLastNotified = null
 
 document.addEventListener(
   'focusin',
   (e) => {
     const path = typeof e.composedPath === 'function' ? e.composedPath() : []
     const el = path[0] || e.target
-    console.log('[NB] focusin:', el && el.tagName, 'editable=', nbIsEditable(el), 'visible=', nbVisible(el))
     if (el && el.closest && el.closest('#nb-panel')) return
     if (!nbIsEditable(el) || !nbVisible(el)) return
     nbCurrentBox = el
-    console.log('[NB] box detected -> requesting panel')
+    // Only (re)trigger the panel when a *different* box gets focus, so clicking
+    // within the same box doesn't thrash, but a new message box always shows it.
+    if (el === nbLastNotified) return
+    nbLastNotified = el
     chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
   },
   true
 )
+
+// If the focused box goes away, clear the dedupe so the next box re-triggers.
+new MutationObserver(() => {
+  if (nbLastNotified && !nbVisible(nbLastNotified)) nbLastNotified = null
+}).observe(document.body || document.documentElement, { childList: true, subtree: true })
 
 // Each frame: drop its box reference when it disappears.
 new MutationObserver(() => {
@@ -388,8 +395,8 @@ new MutationObserver(() => {
 // Messages relayed via the background worker.
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === 'NB_SHOW_PANEL' && NB_TOP) {
-    const key = nbRecipientName() || getName(getNameEl()) || location.pathname
-    if (nbPanel && key === nbActiveKey) return // already showing for this recipient
+    // A box was (re)focused — always (re)build the panel. nbCache avoids
+    // re-calling the API for a recipient we've already drafted.
     nbGenerate(false)
   }
   if (msg.type === 'NB_DO_PASTE') {

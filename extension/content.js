@@ -249,6 +249,24 @@ function nbPosition() {
 
 window.addEventListener('resize', () => nbPanel && nbPosition())
 
+// Find the visible composer editable in THIS frame (the message body).
+function nbFindEditable() {
+  const sels = [
+    '.msg-form__contenteditable',
+    'div[contenteditable="true"]',
+    'div[role="textbox"][contenteditable]',
+    '[aria-placeholder^="Write a message"]',
+    'textarea[name="message"]',
+    '#custom-message',
+  ]
+  for (const s of sels) {
+    for (const el of document.querySelectorAll(s)) {
+      if (nbVisible(el)) return el
+    }
+  }
+  return null
+}
+
 // Copy text to the clipboard synchronously (works inside a click gesture
 // without special permissions) — the reliable ⌘V backstop.
 function nbCopyToClipboard(t) {
@@ -542,6 +560,11 @@ window.addEventListener('message', (e) => {
     nbGenerate(false)
   }
   if (d.type === 'NB_DO_PASTE') {
-    if (nbCurrentBox && nbVisible(nbCurrentBox)) nbInsertRetry(nbCurrentBox, d.text)
+    // Use the focused box if we have one; otherwise find the composer editable
+    // in THIS frame (the iframe is the composer, but the body may not have been
+    // focused yet).
+    const box = nbCurrentBox && nbVisible(nbCurrentBox) ? nbCurrentBox : nbFindEditable()
+    console.log('[NB] NB_DO_PASTE in frame top=', NB_TOP, 'box=', box && box.tagName)
+    if (box) nbInsertRetry(box, d.text)
   }
 })

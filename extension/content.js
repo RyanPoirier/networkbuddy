@@ -249,6 +249,21 @@ function nbPosition() {
 
 window.addEventListener('resize', () => nbPanel && nbPosition())
 
+// Copy text to the clipboard synchronously (works inside a click gesture
+// without special permissions) — the reliable ⌘V backstop.
+function nbCopyToClipboard(t) {
+  try {
+    const ta = document.createElement('textarea')
+    ta.value = t
+    ta.style.position = 'fixed'
+    ta.style.top = '-9999px'
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand('copy')
+    ta.remove()
+  } catch {}
+}
+
 function nbInsert(box, t) {
   box.focus()
   if (box.tagName === 'TEXTAREA' || box.tagName === 'INPUT') {
@@ -304,8 +319,9 @@ function nbRender(drafts) {
     el.appendChild(txt)
     el.appendChild(meta)
     el.onclick = () => {
-      // Paste into this frame's box if present; otherwise broadcast to the
-      // iframe composer directly (no service worker).
+      // Always copy to clipboard first — guaranteed reliable (⌘V backstop).
+      nbCopyToClipboard(d)
+      // Then attempt auto-paste into the box.
       if (nbCurrentBox && nbVisible(nbCurrentBox)) {
         nbInsertRetry(nbCurrentBox, d)
       } else {
@@ -316,7 +332,7 @@ function nbRender(drafts) {
         })
       }
       el.style.borderColor = '#2e7d32'
-      meta.textContent = 'Pasted ✓'
+      meta.textContent = 'Pasted ✓  · or ⌘V'
     }
     body.appendChild(el)
   })

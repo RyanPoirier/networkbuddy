@@ -10,7 +10,6 @@ const els = {
   studentName: document.getElementById('studentName'),
   studentSchool: document.getElementById('studentSchool'),
   studentProgram: document.getElementById('studentProgram'),
-  studentBackground: document.getElementById('studentBackground'),
   saveSettings: document.getElementById('saveSettings'),
 }
 
@@ -25,18 +24,13 @@ chrome.storage.sync.get(SETTINGS_KEYS, (s) => {
   els.studentSchool.value = s.studentSchool || ''
   els.studentProgram.value = s.studentProgram || ''
 })
-// Resume/background can be long, so it lives in local storage (larger quota).
-chrome.storage.local.get(['studentBackground'], (s) => {
-  els.studentBackground.value = s.studentBackground || ''
-})
 
 els.settingsToggle.onclick = () => els.settings.classList.toggle('open')
 
 els.saveSettings.onclick = () => {
   const data = {}
   SETTINGS_KEYS.forEach((k) => (data[k] = els[k].value.trim()))
-  chrome.storage.sync.set(data)
-  chrome.storage.local.set({ studentBackground: els.studentBackground.value.trim() }, () => {
+  chrome.storage.sync.set(data, () => {
     els.settings.classList.remove('open')
   })
 }
@@ -88,7 +82,6 @@ els.generate.onclick = async () => {
   if (!profile) return
 
   const s = await chrome.storage.sync.get(SETTINGS_KEYS)
-  const local = await chrome.storage.local.get(['studentBackground'])
   if (!s.apiKey) {
     els.error.textContent = 'Set your extension key in Settings first.'
     els.settings.classList.add('open')
@@ -111,7 +104,6 @@ els.generate.onclick = async () => {
         studentName: s.studentName || '',
         studentSchool: s.studentSchool || '',
         studentProgram: s.studentProgram || '',
-        studentBackground: local.studentBackground || '',
       }),
     })
     const data = await res.json()

@@ -5,11 +5,7 @@ function getSettings() {
   return new Promise((resolve) => {
     chrome.storage.sync.get(
       ['apiBase', 'apiKey', 'studentName', 'studentSchool', 'studentProgram'],
-      (sync) => {
-        chrome.storage.local.get(['studentBackground'], (local) => {
-          resolve({ ...sync, studentBackground: local.studentBackground || '' })
-        })
-      }
+      resolve
     )
   })
 }
@@ -18,10 +14,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Relay box-focus / paste between frames of the same tab.
   if (msg.type === 'NB_BOX_FOCUSED' && sender.tab) {
     chrome.tabs.sendMessage(sender.tab.id, { type: 'NB_SHOW_PANEL' })
-    return
-  }
-  if (msg.type === 'NB_BOX_GONE' && sender.tab) {
-    chrome.tabs.sendMessage(sender.tab.id, { type: 'NB_HIDE_PANEL' })
     return
   }
   if (msg.type === 'NB_PASTE' && sender.tab) {
@@ -46,7 +38,6 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           studentName: s.studentName || '',
           studentSchool: s.studentSchool || '',
           studentProgram: s.studentProgram || '',
-          studentBackground: s.studentBackground || '',
         }),
       })
       const data = await res.json()

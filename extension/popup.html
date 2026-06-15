@@ -91,15 +91,12 @@
     .settings { display: none; margin-top: 12px; }
     .settings.open { display: block; }
     .settings label { display: block; font-size: 11px; color: var(--brown); margin: 8px 0 3px; }
-    .settings input, .settings textarea {
+    .settings input {
       width: 100%;
       padding: 7px;
       border: 1px solid rgba(42,24,16,0.2);
       border-radius: 7px;
       font-size: 12px;
-      font-family: inherit;
-      box-sizing: border-box;
-      resize: vertical;
     }
     .settings button {
       margin-top: 10px;
@@ -139,8 +136,6 @@
     <input id="studentSchool" placeholder="UBC" />
     <label>Your program</label>
     <input id="studentProgram" placeholder="Commerce" />
-    <label>Your background (paste resume or a short summary)</label>
-    <textarea id="studentBackground" rows="5" placeholder="e.g. 3rd-year Commerce student. Summer analyst at RBC (equity research). Built DCF models. Skills: Python, financial modeling."></textarea>
     <button id="saveSettings">Save</button>
   </div>
 

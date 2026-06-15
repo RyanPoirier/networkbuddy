@@ -10,6 +10,42 @@ function getSettings() {
   })
 }
 
+async function generateDrafts(payload) {
+  const s = await getSettings()
+  if (!s.apiKey) return { error: 'no-key' }
+  const base = (s.apiBase || 'http://localhost:3000').replace(/\/$/, '')
+  try {
+    const res = await fetch(base + '/api/extension/draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-nb-key': s.apiKey },
+      body: JSON.stringify({
+        name: payload.name || 'there',
+        topCardText: payload.profileText || '',
+        studentName: s.studentName || '',
+        studentSchool: s.studentSchool || '',
+        studentProgram: s.studentProgram || '',
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) return { error: data.error || 'request-failed' }
+    return { drafts: data.drafts || [] }
+  } catch (e) {
+    return { error: e.message || 'fetch-failed' }
+  }
+}
+
+// Port-based GENERATE — wakes the worker and delivers promptly.
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'nb-generate') return
+  port.onMessage.addListener(async (msg) => {
+    if (msg.type !== 'GENERATE') return
+    const result = await generateDrafts(msg.payload || {})
+    try {
+      port.postMessage(result)
+    } catch {}
+  })
+})
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Relay box-focus / paste between frames of the same tab.
   if (msg.type === 'NB_BOX_FOCUSED' && sender.tab) {

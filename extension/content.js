@@ -417,6 +417,22 @@ new MutationObserver(() => {
   if (nbLastNotified && !nbVisible(nbLastNotified)) nbLastNotified = null
 }).observe(document.body || document.documentElement, { childList: true, subtree: true })
 
+// MOST RELIABLE SHOW: the "Message" button is always in the top frame's light
+// DOM. When it's clicked, a composer is opening — show the panel shortly after.
+document.addEventListener(
+  'click',
+  (e) => {
+    const btn = e.target.closest && e.target.closest('button, a, [role="button"]')
+    if (!btn || (btn.closest && btn.closest('#nb-panel'))) return
+    const label = ((btn.getAttribute('aria-label') || '') + ' ' + (btn.innerText || '')).toLowerCase()
+    if (/\bmessage\b/.test(label) && NB_TOP) {
+      console.log('[NB] Message button clicked -> show in 700ms')
+      setTimeout(() => nbGenerate(false), 700)
+    }
+  },
+  true
+)
+
 // ROBUST SHOW: watch for the compose WINDOW appearing (reliable, exists
 // immediately) and show the panel then — no need to click the exact body.
 function nbComposeWindowEl() {

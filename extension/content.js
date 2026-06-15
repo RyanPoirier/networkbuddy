@@ -439,14 +439,20 @@ function nbComposeWindowEl() {
 let nbWindowShown = false
 let nbWinTimer = null
 new MutationObserver(() => {
-  if (!NB_TOP) return
   clearTimeout(nbWinTimer)
   nbWinTimer = setTimeout(() => {
     const win = nbComposeWindowEl()
     if (win && !nbWindowShown) {
       nbWindowShown = true
-      console.log('[NB] compose window detected -> show')
-      nbGenerate(false)
+      console.log('[NB] compose window detected -> show, top=', NB_TOP)
+      // The form may be in an iframe — that frame tells the top frame to show.
+      if (NB_TOP) {
+        nbGenerate(false)
+      } else {
+        try {
+          window.top.postMessage({ __nb: true, type: 'NB_BOX_FOCUSED' }, '*')
+        } catch {}
+      }
     } else if (!win) {
       nbWindowShown = false
     }

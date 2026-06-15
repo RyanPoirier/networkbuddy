@@ -282,26 +282,26 @@ function nbInsert(box, t) {
   }
 }
 
-// Retry the insert until the text lands — the editor often ignores the first
-// attempt right after losing focus to the panel click. Insert replaces all
-// content, so retrying can't duplicate. This does in one click what used to
-// take a second click.
+// Insert after a short delay — this mimics the timing of the old background
+// relay (~150ms) that let the editor settle after losing focus to the panel
+// click, which is what made it paste on the first try. A single fallback covers
+// the rare miss.
 function nbInsertRetry(box, t) {
   if (!box) return
-  let tries = 0
-  const attempt = () => {
-    if (box.tagName === 'TEXTAREA' || box.tagName === 'INPUT' || box.isContentEditable) {
-      box.focus()
-      nbInsert(box, t)
-    }
-    tries++
-    const landed =
-      box.tagName === 'TEXTAREA' || box.tagName === 'INPUT'
-        ? (box.value || '').trim().length > 0
-        : (box.textContent || '').trim().length > 0
-    if (!landed && tries < 12) setTimeout(attempt, 60)
-  }
-  attempt()
+  setTimeout(() => {
+    box.focus()
+    nbInsert(box, t)
+    setTimeout(() => {
+      const landed =
+        box.tagName === 'TEXTAREA' || box.tagName === 'INPUT'
+          ? (box.value || '').trim().length > 0
+          : (box.textContent || '').trim().length > 0
+      if (!landed) {
+        box.focus()
+        nbInsert(box, t)
+      }
+    }, 140)
+  }, 150)
 }
 
 function nbRender(drafts) {
@@ -319,9 +319,8 @@ function nbRender(drafts) {
     el.appendChild(txt)
     el.appendChild(meta)
     el.onclick = () => {
-      // Always copy to clipboard first — guaranteed reliable (⌘V backstop).
-      nbCopyToClipboard(d)
-      // Then attempt auto-paste into the box.
+      // Auto-paste into the box (no clipboard copy here — selecting a temp
+      // textarea would steal focus from the message box and break the paste).
       if (nbCurrentBox && nbVisible(nbCurrentBox)) {
         nbInsertRetry(nbCurrentBox, d)
       } else {
@@ -332,7 +331,7 @@ function nbRender(drafts) {
         })
       }
       el.style.borderColor = '#2e7d32'
-      meta.textContent = 'Pasted ✓  · or ⌘V'
+      meta.textContent = 'Pasted ✓'
     }
     body.appendChild(el)
   })

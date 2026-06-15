@@ -377,7 +377,13 @@ document.addEventListener(
     // within the same box doesn't thrash, but a new message box always shows it.
     if (el === nbLastNotified) return
     nbLastNotified = el
-    chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
+    // Top frame: show the panel directly (no background round-trip, which can be
+    // delayed by an idle service worker — the cause of "only after tab switch").
+    if (NB_TOP) {
+      nbGenerate(false)
+    } else {
+      chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
+    }
   },
   true
 )

@@ -330,14 +330,31 @@ function nbGenerate(force) {
       nbRender(nbCache[key])
       return
     }
-    chrome.runtime.sendMessage(
-      { type: 'GENERATE', payload: { name: ctx.name, profileText: ctx.profileText } },
-      (resp) => {
-        if (chrome.runtime.lastError || !resp) return nbStatus('No response — is the app running?')
-        if (resp.error === 'no-key') return nbStatus('Open the extension and add your key in Settings.')
-        if (resp.error) return nbStatus('Error: ' + resp.error)
-        nbCache[key] = resp.drafts
-        nbRender(resp.drafts)
+    // Fetch drafts directly from the content script — no background service
+    // worker, which goes idle and only delivers on tab switch.
+    chrome.storage.sync.get(
+      ['apiBase', 'apiKey', 'studentName', 'studentSchool', 'studentProgram'],
+      (s) => {
+        if (!s.apiKey) return nbStatus('Open the extension and add your key in Settings.')
+        const base = (s.apiBase || 'http://localhost:3000').replace(/\/$/, '')
+        fetch(base + '/api/extension/draft', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-nb-key': s.apiKey },
+          body: JSON.stringify({
+            name: ctx.name,
+            topCardText: ctx.profileText,
+            studentName: s.studentName || '',
+            studentSchool: s.studentSchool || '',
+            studentProgram: s.studentProgram || '',
+          }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.error) return nbStatus('Error: ' + data.error)
+            nbCache[key] = data.drafts || []
+            nbRender(data.drafts || [])
+          })
+          .catch(() => nbStatus('No response — is the app running?'))
       }
     )
   })

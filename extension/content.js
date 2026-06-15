@@ -209,6 +209,12 @@ function nbBuildPanel() {
     '<button class="nb-x" title="Close">✕</button></div>' +
     '<div class="nb-body"><div class="nb-status">Drafting…</div></div>'
   document.body.appendChild(p)
+  // Force an immediate paint — otherwise LinkedIn's page sometimes doesn't
+  // composite the injected panel until the next repaint (e.g. a tab switch).
+  void p.offsetHeight
+  requestAnimationFrame(() => {
+    p.style.transform = 'translateZ(0)'
+  })
   p.querySelector('.nb-x').onclick = () => {
     nbActiveKey = null
     nbRemovePanel()

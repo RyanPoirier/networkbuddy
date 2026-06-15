@@ -417,15 +417,23 @@ new MutationObserver(() => {
   if (nbLastNotified && !nbVisible(nbLastNotified)) nbLastNotified = null
 }).observe(document.body || document.documentElement, { childList: true, subtree: true })
 
-// Each frame: drop its box reference when it disappears.
+// Hide the panel only when the compose window is truly gone — debounced so a
+// transient re-render flicker doesn't kill the panel (that was the bug where it
+// only appeared after a tab switch).
+let nbHideTimer = null
 new MutationObserver(() => {
-  if (nbCurrentBox && !nbVisible(nbCurrentBox)) {
-    nbCurrentBox = null
-    if (NB_TOP) {
+  if (!NB_TOP || !nbPanel) return
+  clearTimeout(nbHideTimer)
+  nbHideTimer = setTimeout(() => {
+    const composeOpen = document.querySelector(
+      '[class*="msg-overlay-conversation-bubble"], .msg-form, [aria-placeholder^="Write a message"], textarea[name="message"], #custom-message'
+    )
+    if (!composeOpen) {
       nbActiveKey = null
+      nbLastNotified = null
       nbRemovePanel()
     }
-  }
+  }, 1500)
 }).observe(document.body || document.documentElement, { childList: true, subtree: true })
 
 // Direct frame-to-frame messaging (no service worker, instant).

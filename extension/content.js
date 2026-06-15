@@ -267,6 +267,28 @@ function nbInsert(box, t) {
   }
 }
 
+// Retry the insert until the text lands — the editor often ignores the first
+// attempt right after losing focus to the panel click. Insert replaces all
+// content, so retrying can't duplicate. This does in one click what used to
+// take a second click.
+function nbInsertRetry(box, t) {
+  if (!box) return
+  let tries = 0
+  const attempt = () => {
+    if (box.tagName === 'TEXTAREA' || box.tagName === 'INPUT' || box.isContentEditable) {
+      box.focus()
+      nbInsert(box, t)
+    }
+    tries++
+    const landed =
+      box.tagName === 'TEXTAREA' || box.tagName === 'INPUT'
+        ? (box.value || '').trim().length > 0
+        : (box.textContent || '').trim().length > 0
+    if (!landed && tries < 12) setTimeout(attempt, 60)
+  }
+  attempt()
+}
+
 function nbRender(drafts) {
   if (!nbPanel) return
   const body = nbPanel.querySelector('.nb-body')
@@ -285,7 +307,7 @@ function nbRender(drafts) {
       // Paste into this frame's box if present; otherwise broadcast to the
       // iframe composer directly (no service worker).
       if (nbCurrentBox && nbVisible(nbCurrentBox)) {
-        nbInsert(nbCurrentBox, d)
+        nbInsertRetry(nbCurrentBox, d)
       } else {
         document.querySelectorAll('iframe').forEach((f) => {
           try {
@@ -499,6 +521,6 @@ window.addEventListener('message', (e) => {
     nbGenerate(false)
   }
   if (d.type === 'NB_DO_PASTE') {
-    if (nbCurrentBox && nbVisible(nbCurrentBox)) nbInsert(nbCurrentBox, d.text)
+    if (nbCurrentBox && nbVisible(nbCurrentBox)) nbInsertRetry(nbCurrentBox, d.text)
   }
 })

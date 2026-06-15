@@ -475,24 +475,20 @@ new MutationObserver(() => {
   }, 200)
 }).observe(document.body || document.documentElement, { childList: true, subtree: true })
 
-// Hide the panel only when the compose window is truly gone — debounced so a
-// transient re-render flicker doesn't kill the panel (that was the bug where it
-// only appeared after a tab switch).
-let nbHideTimer = null
-new MutationObserver(() => {
-  if (!NB_TOP || !nbPanel) return
-  clearTimeout(nbHideTimer)
-  nbHideTimer = setTimeout(() => {
-    const composeOpen = document.querySelector(
-      '[class*="msg-overlay-conversation-bubble"], .msg-form, [aria-placeholder^="Write a message"], textarea[name="message"], #custom-message'
-    )
-    if (!composeOpen) {
-      nbActiveKey = null
-      nbLastNotified = null
-      nbRemovePanel()
-    }
-  }, 1500)
-}).observe(document.body || document.documentElement, { childList: true, subtree: true })
+// No auto-hide: the message form is inside an iframe the top frame can't see,
+// so any "is it still open?" check is unreliable and was killing the panel.
+// The panel stays until the user dismisses it (✕) or opens another message
+// (which rebuilds it). Hide it on full-page navigation instead.
+let nbLastPath = location.pathname
+setInterval(() => {
+  if (location.pathname !== nbLastPath) {
+    nbLastPath = location.pathname
+    nbActiveKey = null
+    nbLastNotified = null
+    nbWindowShown = false
+    if (NB_TOP) nbRemovePanel()
+  }
+}, 1000)
 
 // Direct frame-to-frame messaging (no service worker, instant).
 window.addEventListener('message', (e) => {

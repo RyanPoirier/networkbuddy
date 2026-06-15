@@ -282,8 +282,17 @@ function nbRender(drafts) {
     el.appendChild(txt)
     el.appendChild(meta)
     el.onclick = () => {
-      // Paste is relayed to whichever frame holds the focused message box.
-      chrome.runtime.sendMessage({ type: 'NB_PASTE', text: d })
+      // Paste into this frame's box if present; otherwise broadcast to the
+      // iframe composer directly (no service worker).
+      if (nbCurrentBox && nbVisible(nbCurrentBox)) {
+        nbInsert(nbCurrentBox, d)
+      } else {
+        document.querySelectorAll('iframe').forEach((f) => {
+          try {
+            f.contentWindow.postMessage({ __nb: true, type: 'NB_DO_PASTE', text: d }, '*')
+          } catch {}
+        })
+      }
       el.style.borderColor = '#2e7d32'
       meta.textContent = 'Pasted ✓'
     }
@@ -394,12 +403,15 @@ document.addEventListener(
     // within the same box doesn't thrash, but a new message box always shows it.
     if (el === nbLastNotified) return
     nbLastNotified = el
-    // Top frame: show the panel directly (no background round-trip, which can be
-    // delayed by an idle service worker — the cause of "only after tab switch").
+    // Show the panel without going through the background service worker (which
+    // goes idle and only delivers on a tab switch). Top frame shows directly;
+    // an iframe composer messages the top frame directly via postMessage.
     if (NB_TOP) {
       nbGenerate(false)
     } else {
-      chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
+      try {
+        window.top.postMessage({ __nb: true, type: 'NB_BOX_FOCUSED' }, '*')
+      } catch {}
     }
   },
   true
@@ -421,14 +433,14 @@ new MutationObserver(() => {
   }
 }).observe(document.body || document.documentElement, { childList: true, subtree: true })
 
-// Messages relayed via the background worker.
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'NB_SHOW_PANEL' && NB_TOP) {
-    // A box was (re)focused — always (re)build the panel. nbCache avoids
-    // re-calling the API for a recipient we've already drafted.
+// Direct frame-to-frame messaging (no service worker, instant).
+window.addEventListener('message', (e) => {
+  const d = e.data
+  if (!d || !d.__nb) return
+  if (d.type === 'NB_BOX_FOCUSED' && NB_TOP) {
     nbGenerate(false)
   }
-  if (msg.type === 'NB_DO_PASTE') {
-    if (nbCurrentBox && nbVisible(nbCurrentBox)) nbInsert(nbCurrentBox, msg.text)
+  if (d.type === 'NB_DO_PASTE') {
+    if (nbCurrentBox && nbVisible(nbCurrentBox)) nbInsert(nbCurrentBox, d.text)
   }
 })

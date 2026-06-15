@@ -357,14 +357,18 @@ if (NB_TOP && document.body) {
 
 // Each frame watches for an editable being focused. The frame that owns the
 // box remembers it (for paste) and asks the top frame to show the panel.
+console.log('[NB] content script LOADED on', location.href)
+
 document.addEventListener(
   'focusin',
   (e) => {
     const path = typeof e.composedPath === 'function' ? e.composedPath() : []
     const el = path[0] || e.target
+    console.log('[NB] focusin:', el && el.tagName, 'editable=', nbIsEditable(el), 'visible=', nbVisible(el))
     if (el && el.closest && el.closest('#nb-panel')) return
     if (!nbIsEditable(el) || !nbVisible(el)) return
     nbCurrentBox = el
+    console.log('[NB] box detected -> requesting panel')
     chrome.runtime.sendMessage({ type: 'NB_BOX_FOCUSED' })
   },
   true

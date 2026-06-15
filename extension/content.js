@@ -417,6 +417,42 @@ new MutationObserver(() => {
   if (nbLastNotified && !nbVisible(nbLastNotified)) nbLastNotified = null
 }).observe(document.body || document.documentElement, { childList: true, subtree: true })
 
+// ROBUST SHOW: watch for the compose WINDOW appearing (reliable, exists
+// immediately) and show the panel then — no need to click the exact body.
+function nbComposeWindowEl() {
+  const sels = [
+    '[class*="msg-overlay-conversation-bubble"]',
+    '.msg-form',
+    '[aria-placeholder^="Write a message"]',
+    'textarea[name="message"]',
+    '#custom-message',
+  ]
+  for (const s of sels) {
+    for (const el of document.querySelectorAll(s)) {
+      const r = el.getBoundingClientRect()
+      if (r.width > 80 && r.height > 30) return el
+    }
+  }
+  return null
+}
+
+let nbWindowShown = false
+let nbWinTimer = null
+new MutationObserver(() => {
+  if (!NB_TOP) return
+  clearTimeout(nbWinTimer)
+  nbWinTimer = setTimeout(() => {
+    const win = nbComposeWindowEl()
+    if (win && !nbWindowShown) {
+      nbWindowShown = true
+      console.log('[NB] compose window detected -> show')
+      nbGenerate(false)
+    } else if (!win) {
+      nbWindowShown = false
+    }
+  }, 200)
+}).observe(document.body || document.documentElement, { childList: true, subtree: true })
+
 // Hide the panel only when the compose window is truly gone — debounced so a
 // transient re-render flicker doesn't kill the panel (that was the bug where it
 // only appeared after a tab switch).

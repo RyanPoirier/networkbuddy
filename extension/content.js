@@ -326,8 +326,10 @@ function nbRecipientName() {
 
 // Only the top frame renders the panel (single panel, always visible).
 function nbGenerate(force) {
+  console.log('[NB] nbGenerate called, NB_TOP=', NB_TOP)
   if (!NB_TOP) return
   nbBuildPanel()
+  console.log('[NB] panel built:', !!nbPanel)
   if (!nbPanel) return
   nbPosition()
   nbStatus('Drafting…')
@@ -388,6 +390,7 @@ document.addEventListener(
   (e) => {
     const path = typeof e.composedPath === 'function' ? e.composedPath() : []
     const el = path[0] || e.target
+    console.log('[NB] focusin frame top=' + NB_TOP, el && el.tagName, 'editable=', nbIsEditable(el))
     if (el && el.closest && el.closest('#nb-panel')) return
     if (!nbIsEditable(el) || !nbVisible(el)) return
     nbCurrentBox = el
@@ -429,6 +432,7 @@ new MutationObserver(() => {
 window.addEventListener('message', (e) => {
   const d = e.data
   if (!d || !d.__nb) return
+  console.log('[NB] postMessage received:', d.type, 'top=', NB_TOP)
   if (d.type === 'NB_BOX_FOCUSED' && NB_TOP) {
     nbGenerate(false)
   }

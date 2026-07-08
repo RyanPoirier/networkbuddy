@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
+import { getUsage, consumeReveals } from '@/lib/quota'
 
 // Parse a natural-language query into Apollo search filters.
 interface ApolloFilters {
@@ -112,12 +113,25 @@ Rules:
     email?: string
     linkedin_url?: string
   }
-  const people: ApolloPerson[] = (apolloData.people ?? []).filter(
+  const allPeople: ApolloPerson[] = (apolloData.people ?? []).filter(
     (p: ApolloPerson) => (p.first_name ?? p.name ?? '').trim()
   )
-  if (people.length === 0) {
+  if (allPeople.length === 0) {
     return NextResponse.json({ contacts: [], source: 'apollo_empty', filters })
   }
+
+  // Quota gate: each reveal spends an Apollo credit, so cap by the user's plan.
+  const usage = await getUsage(user.id)
+  if (usage.remaining <= 0) {
+    return NextResponse.json({
+      contacts: [],
+      source: 'quota_exceeded',
+      usage: { plan: usage.plan, used: usage.used, quota: usage.quota },
+    })
+  }
+
+  // Only reveal up to what the user has left this month.
+  const people = allPeople.slice(0, usage.remaining)
 
   // Reveal real names/emails/LinkedIn via People Enrichment (search obfuscates
   // last names on the Basic plan). One credit per person — done in parallel.
@@ -153,5 +167,17 @@ Rules:
 
   const { data: inserted } = await supabase.from('contacts').insert(contacts).select()
 
-  return NextResponse.json({ contacts: inserted ?? contacts, source: 'apollo', filters })
+  // Record the reveals spent.
+  await consumeReveals(user.id, contacts.length)
+
+  return NextResponse.json({
+    contacts: inserted ?? contacts,
+    source: 'apollo',
+    filters,
+    usage: {
+      plan: usage.plan,
+      used: usage.used + contacts.length,
+      quota: usage.quota,
+    },
+  })
 }

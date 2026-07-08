@@ -32,6 +32,8 @@ function SearchContent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
+  const [usage, setUsage] = useState<{ plan: string; used: number; quota: number } | null>(null)
+  const [quotaHit, setQuotaHit] = useState(false)
 
   useEffect(() => {
     if (initialCompany) handleSearch(`People at ${initialCompany}`)
@@ -47,6 +49,7 @@ function SearchContent() {
     setLastQuery(query)
     setContacts([])
     setFilters(null)
+    setQuotaHit(false)
     try {
       const res = await fetch('/api/contacts/nl-search', {
         method: 'POST',
@@ -55,6 +58,11 @@ function SearchContent() {
       })
       if (!res.ok) throw new Error('Search failed')
       const data = await res.json()
+      if (data.usage) setUsage(data.usage)
+      if (data.source === 'quota_exceeded') {
+        setQuotaHit(true)
+        return
+      }
       setContacts(data.contacts ?? [])
       setFilters(data.filters ?? null)
     } catch (err: unknown) {
@@ -78,9 +86,19 @@ function SearchContent() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="mb-6">
-        <h1 className="font-display text-2xl font-extrabold text-[#2a1710]">Find people</h1>
-        <p className="text-[#2a1710]/60 mt-1">Describe who you&apos;re looking for in plain English.</p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-2xl font-extrabold text-[#2a1710]">Find people</h1>
+          <p className="text-[#2a1710]/60 mt-1">Describe who you&apos;re looking for in plain English.</p>
+        </div>
+        {usage && (
+          <div className="text-right shrink-0">
+            <div className="text-xs text-[#2a1710]/50 uppercase tracking-wide">{usage.plan} plan</div>
+            <div className="text-sm font-semibold text-[#2a1710]">
+              {Math.max(0, usage.quota - usage.used)}/{usage.quota} reveals left
+            </div>
+          </div>
+        )}
       </div>
 
       <form onSubmit={onSubmit} className="mb-4">
@@ -128,6 +146,18 @@ function SearchContent() {
 
       {error && (
         <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl mb-6">{error}</div>
+      )}
+
+      {quotaHit && (
+        <div className="bg-[#c14a19]/10 border border-[#c14a19]/25 rounded-2xl px-5 py-6 mb-6 text-center">
+          <p className="font-display font-bold text-[#2a1710] text-lg">You&apos;ve used all your reveals this month</p>
+          <p className="text-sm text-[#2a1710]/70 mt-1">
+            Your {usage?.plan} plan includes {usage?.quota} contact reveals per month. Upgrade to keep going.
+          </p>
+          <button className="mt-4 bg-[#c14a19] hover:bg-[#a83d12] text-white font-semibold px-5 py-2.5 rounded-xl transition-colors">
+            Upgrade to Pro
+          </button>
+        </div>
       )}
 
       {loading && (

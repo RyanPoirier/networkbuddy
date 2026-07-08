@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    :root {
+      --ink: #0f172a;
+      --teal: #0d9488;
+      --teal-hover: #0f766e;
+      --line: #e2e8f0;
+      --muted: #64748b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      width: 340px; margin: 0; padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: var(--ink); background: #fff;
+    }
+    .header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .header h1 { font-size: 15px; margin: 0; font-weight: 800; }
+    .header .accent { color: var(--teal); }
+    .header .dot { width: 9px; height: 9px; border-radius: 50%; background: #2dd4bf; }
+    .target {
+      font-size: 12px; color: var(--muted); background: #f8fafc; border: 1px solid var(--line);
+      border-radius: 10px; padding: 9px 11px; margin-bottom: 12px; min-height: 18px;
+    }
+    .target strong { color: var(--ink); }
+    button.primary {
+      width: 100%; background: var(--teal); color: #fff; border: none; border-radius: 10px;
+      padding: 11px; font-size: 14px; font-weight: 700; cursor: pointer;
+    }
+    button.primary:hover { background: var(--teal-hover); }
+    button.primary:disabled { opacity: .5; cursor: default; }
+    #results { margin-top: 10px; }
+    .row {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      background: #f8fafc; border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px; margin-top: 7px;
+    }
+    .row .k { font-size: 10px; color: #94a3b8; font-weight: 700; text-transform: uppercase; }
+    .row .v { font-size: 12.5px; word-break: break-all; }
+    .copy { border: none; background: var(--ink); color: #fff; border-radius: 6px; padding: 5px 9px;
+      font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    .copy.copied { background: #16a34a; }
+    .note { font-size: 11px; color: var(--muted); background: #fef9c3; border: 1px solid #fde68a;
+      border-radius: 8px; padding: 7px 9px; margin-top: 7px; line-height: 1.4; }
+    .error { color: #b91c1c; font-size: 12px; margin-top: 10px; }
+    .wf-toggle { margin-top: 12px; font-size: 11px; font-weight: 700; color: var(--teal);
+      cursor: pointer; user-select: none; }
+    .wf-toggle:hover { text-decoration: underline; }
+    .wf { margin-top: 8px; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; }
+    .wf-row { display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px; font-size: 11px;
+      border-bottom: 1px solid #f1f5f9; }
+    .wf-row:last-child { border-bottom: none; }
+    .wf-ico { font-weight: 800; width: 14px; text-align: center; flex: none; }
+    .wf-ico.hit { color: #16a34a; }
+    .wf-ico.miss, .wf-ico.skipped { color: #94a3b8; }
+    .wf-ico.error { color: #b91c1c; }
+    .wf-main { flex: 1; }
+    .wf-name { font-weight: 700; color: var(--ink); }
+    .wf-detail { color: var(--muted); }
+    .wf-ms { color: #cbd5e1; font-size: 10px; flex: none; }
+    .settings-link { display: block; margin-top: 14px; font-size: 11px; color: var(--muted);
+      text-align: center; cursor: pointer; text-decoration: underline; }
+    .settings { display: none; margin-top: 12px; }
+    .settings.open { display: block; }
+    .settings label { display: block; font-size: 11px; color: var(--muted); margin: 8px 0 3px; }
+    .settings input { width: 100%; padding: 7px; border: 1px solid var(--line); border-radius: 7px; font-size: 12px; }
+    .settings .save { margin-top: 10px; width: 100%; background: var(--ink); color: #fff; border: none;
+      border-radius: 8px; padding: 8px; font-size: 12px; cursor: pointer; }
+    .hint { font-size: 10.5px; color: #94a3b8; margin-top: 12px; text-align: center; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="dot"></span>
+    <h1>Sonibel <span class="accent">Enrich</span></h1>
+  </div>
+
+  <div class="target" id="target">Open a LinkedIn profile to get started.</div>
+
+  <button class="primary" id="enrich" disabled>Get contact info</button>
+
+  <div id="results"></div>
+  <div class="error" id="error"></div>
+
+  <div class="hint">Tip: on a profile, use the floating <b>Sonibel</b> button for contact info + outreach.</div>
+
+  <span class="settings-link" id="settingsToggle">Settings</span>
+  <div class="settings" id="settings">
+    <label>API base URL</label>
+    <input id="apiBase" placeholder="http://localhost:3000" />
+    <label>Extension key (EXTENSION_API_KEY)</label>
+    <input id="apiKey" placeholder="your extension key" />
+    <label>Your name (email signature)</label>
+    <input id="senderName" placeholder="Ryan Poirier" />
+    <label>Your role</label>
+    <input id="senderTitle" placeholder="Go-To-Market, Sonibel Instruments" />
+    <button class="save" id="saveSettings">Save</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

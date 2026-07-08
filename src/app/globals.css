@@ -1,26 +1,35 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f1f3d;
-  --navy: #0f1f3d;
-  --navy-light: #1a3560;
-  --orange: #f97316;
-  --orange-hover: #ea6c0a;
+  /* Network Buddy brand system */
+  --cream: #f2ecd6;
+  --ink: #2a1710;
+  --orange: #c14a19;
+  --orange-hover: #a83d12;
+
+  --background: var(--cream);
+  --foreground: var(--ink);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-navy: var(--navy);
-  --color-navy-light: var(--navy-light);
+  --color-cream: var(--cream);
+  --color-ink: var(--ink);
   --color-orange: var(--orange);
+  --font-display: var(--font-display);
+  --font-sans: var(--font-body);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-manrope), -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  font-family: var(--font-body), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Headings & wordmark use the display font */
+h1, h2, h3, .font-display {
+  font-family: var(--font-display), -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 .kanban-card {

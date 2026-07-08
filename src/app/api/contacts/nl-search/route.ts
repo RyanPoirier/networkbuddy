@@ -57,10 +57,11 @@ Return ONLY JSON with these optional fields (omit or null when not implied):
 }
 
 Rules:
-- "boutique", "small", "startup" firms -> organization_num_employees_ranges like ["1,10","11,50","51,200"].
+- "boutique", "small", "startup" firms -> organization_num_employees_ranges like ["1,10","11,50","51,200"]. NEVER put these words anywhere else.
 - "mid-size" -> ["201,500","501,1000"]. "large"/"enterprise" -> ["1001,5000","5001,10000","10001,50000"].
 - Only set q_organization_name when a real company is named; do NOT put "boutique firms" there.
-- Normalize titles to how they appear on LinkedIn (e.g. "asset management" -> "Asset Management Analyst" is too specific; prefer the role phrase they used, e.g. "Asset Management").
+- person_titles: give a few sensible variants of the role (e.g. ["Asset Management","Investment Analyst","Portfolio Manager"]). Keep them realistic, not hyper-specific.
+- q_keywords: almost always null. Apollo matches it against literal profile text, so it over-filters badly. Only set it if there are NO titles and NO company — never duplicate the role or put qualitative words like "boutique" in it.
 - Keep it minimal and accurate.`
 
   const client = new Anthropic()
@@ -82,7 +83,11 @@ Rules:
   if (filters.person_locations?.length) body.person_locations = filters.person_locations
   if (filters.organization_num_employees_ranges?.length)
     body.organization_num_employees_ranges = filters.organization_num_employees_ranges
-  if (filters.q_keywords) body.q_keywords = filters.q_keywords
+  // q_keywords over-filters hard (it matches literal profile text), so only use
+  // it as a last resort when we have no titles and no company to search on.
+  if (filters.q_keywords && !filters.person_titles?.length && !filters.q_organization_name) {
+    body.q_keywords = filters.q_keywords
+  }
 
   const apolloRes = await fetch('https://api.apollo.io/api/v1/mixed_people/api_search', {
     method: 'POST',

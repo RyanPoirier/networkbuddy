@@ -101,33 +101,55 @@ Rules:
   }
 
   const apolloData = await apolloRes.json()
-  const people = apolloData.people ?? []
+  interface ApolloPerson {
+    id?: string
+    first_name?: string
+    last_name?: string
+    last_name_obfuscated?: string
+    name?: string
+    title?: string
+    organization?: { name?: string; primary_domain?: string }
+    email?: string
+    linkedin_url?: string
+  }
+  const people: ApolloPerson[] = (apolloData.people ?? []).filter(
+    (p: ApolloPerson) => (p.first_name ?? p.name ?? '').trim()
+  )
   if (people.length === 0) {
     return NextResponse.json({ contacts: [], source: 'apollo_empty', filters })
   }
 
-  const contacts = people
-    .filter((p: { first_name?: string }) => (p.first_name ?? '').trim())
-    .map((p: {
-      first_name?: string
-      last_name?: string
-      last_name_obfuscated?: string
-      name?: string
-      title?: string
-      organization?: { name?: string; primary_domain?: string }
-      email?: string
-      linkedin_url?: string
-    }) => ({
-      user_id: user.id,
-      full_name: p.name ?? `${p.first_name ?? ''} ${p.last_name ?? p.last_name_obfuscated ?? ''}`.trim(),
-      title: p.title ?? '',
-      company: p.organization?.name ?? '',
-      domain: p.organization?.primary_domain ?? '',
-      email: p.email ?? null,
-      linkedin_url: p.linkedin_url ?? null,
-      email_verified: false,
-      last_verified_at: new Date().toISOString(),
-    }))
+  // Reveal real names/emails/LinkedIn via People Enrichment (search obfuscates
+  // last names on the Basic plan). One credit per person — done in parallel.
+  const revealed: ApolloPerson[] = await Promise.all(
+    people.map(async (p) => {
+      if (!p.id) return p
+      try {
+        const r = await fetch('https://api.apollo.io/api/v1/people/match', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Api-Key': apolloKey },
+          body: JSON.stringify({ id: p.id }),
+        })
+        if (r.ok) {
+          const d = await r.json()
+          return (d.person as ApolloPerson) ?? p
+        }
+      } catch {}
+      return p
+    })
+  )
+
+  const contacts = revealed.map((p) => ({
+    user_id: user.id,
+    full_name: p.name ?? `${p.first_name ?? ''} ${p.last_name ?? p.last_name_obfuscated ?? ''}`.trim(),
+    title: p.title ?? '',
+    company: p.organization?.name ?? '',
+    domain: p.organization?.primary_domain ?? '',
+    email: p.email ?? null,
+    linkedin_url: p.linkedin_url ?? null,
+    email_verified: false,
+    last_verified_at: new Date().toISOString(),
+  }))
 
   const { data: inserted } = await supabase.from('contacts').insert(contacts).select()
 

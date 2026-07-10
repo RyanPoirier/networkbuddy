@@ -103,17 +103,45 @@ Rules:
     if (historyIntent && isPro) sources.push('pdl')
   }
 
-  const { rows, sourcesQueried, errors } = await searchAll(filters, {
+  const searchOpts = {
     sources,
-    fallbackSources: ['coresignal'], // coverage backfill when Apollo is thin
+    fallbackSources: ['coresignal'] as ProviderName[], // coverage backfill when Apollo is thin
     minResults: 5,
     limit: 10,
-  })
+  }
+  let { rows, sourcesQueried, errors } = await searchAll(filters, searchOpts)
+  let effectiveFilters: SearchFilters = filters
 
-  // Honest filter echo: location isn't applied as a hard filter when a company
-  // is named (Apollo's city data is too sparse), so don't advertise it.
-  const locationApplied = Boolean(filters.person_locations?.length && !filters.q_organization_name)
-  const appliedFilters = { ...filters, person_locations: locationApplied ? filters.person_locations : null }
+  // Progressive relaxation: "soft" qualifiers (startup/early-stage, industry,
+  // company size, stray keywords) are easy to over-constrain — e.g. "startup GTM
+  // engineers in bc" stacks a funding-stage + size + industry filter that Apollo
+  // has no data to satisfy, returning 0 even though real GTM engineers exist. If
+  // the constrained search is empty, drop those soft filters and retry on the
+  // core intent (title + location + company). Hard filters are never dropped.
+  const SOFT_KEYS: (keyof SearchFilters)[] = [
+    'industries', 'early_stage', 'organization_num_employees_ranges', 'q_keywords',
+  ]
+  const hasSoft = SOFT_KEYS.some((k) => {
+    const v = filters[k]
+    return Array.isArray(v) ? v.length > 0 : v != null
+  })
+  if (!rows.length && hasSoft) {
+    const relaxed: SearchFilters = { ...filters }
+    for (const k of SOFT_KEYS) delete relaxed[k]
+    const retry = await searchAll(relaxed, searchOpts)
+    if (retry.rows.length) {
+      rows = retry.rows
+      sourcesQueried = retry.sourcesQueried
+      errors = retry.errors
+      effectiveFilters = relaxed
+    }
+  }
+
+  // Honest filter echo: reflect what was actually applied (relaxation may have
+  // dropped the soft filters), and don't advertise location as a hard filter
+  // when a company is named (Apollo's city data is too sparse).
+  const locationApplied = Boolean(effectiveFilters.person_locations?.length && !effectiveFilters.q_organization_name)
+  const appliedFilters = { ...effectiveFilters, person_locations: locationApplied ? effectiveFilters.person_locations : null }
 
   return NextResponse.json({
     rows,

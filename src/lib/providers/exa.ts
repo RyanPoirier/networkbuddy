@@ -24,16 +24,16 @@ interface ExaPersonProps {
   workHistory?: ExaWorkEntry[]
 }
 
+interface ExaEntity {
+  type?: string
+  properties?: ExaPersonProps
+}
+
 interface ExaResult {
   id?: string
   url?: string
-  properties?: ExaPersonProps
-  // Some response shapes inline the person fields at the top level.
-  name?: string
-  firstName?: string
-  lastName?: string
-  location?: string
-  workHistory?: ExaWorkEntry[]
+  title?: string // person's display name at the result level
+  entities?: ExaEntity[] // person data lives here: entities[0].properties
 }
 
 // The current role = the work entry with no end date (or the first entry).
@@ -46,7 +46,7 @@ export const exaProvider: PeopleProvider = {
   name: 'exa',
   isConfigured: () => Boolean(process.env.EXA_API_KEY),
 
-  async search(filters: SearchFilters, limit: number): Promise<ProviderPerson[]> {
+  async search(filters: SearchFilters, _limit: number): Promise<ProviderPerson[]> {
     const key = process.env.EXA_API_KEY
     const query = filters.raw_query?.trim()
     if (!key || !query) return []
@@ -58,7 +58,9 @@ export const exaProvider: PeopleProvider = {
         query,
         category: 'people',
         type: 'auto',
-        numResults: Math.min(limit, 100),
+        // Always pull Exa's full page; dedupe + the AI relevance gate trim to the
+        // display limit, so more candidates only means better recall.
+        numResults: 100,
       }),
     })
     if (!res.ok) throw new Error(`Exa search failed: ${res.status}`)
@@ -66,10 +68,15 @@ export const exaProvider: PeopleProvider = {
 
     return ((data.results ?? []) as ExaResult[])
       .map((r): ProviderPerson | null => {
-        const p = r.properties ?? r
+        // Person fields live under entities[0].properties; the result-level
+        // `title` is the display name as a fallback.
+        const p = r.entities?.find((e) => e.type === 'person')?.properties
+          ?? r.entities?.[0]?.properties
+          ?? {}
+        const fullName = p.name ?? r.title ?? ''
         const role = currentRole(p.workHistory)
-        const first = p.firstName ?? (p.name ?? '').split(' ')[0] ?? ''
-        const last = p.lastName ?? (p.name ?? '').split(' ').slice(1).join(' ')
+        const first = p.firstName ?? fullName.split(' ')[0] ?? ''
+        const last = p.lastName ?? fullName.split(' ').slice(1).join(' ')
         if (!first.trim()) return null
         return {
           provider: 'exa',

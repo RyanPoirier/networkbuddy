@@ -176,13 +176,15 @@ export const apolloProvider: PeopleProvider = {
     let people = await run(withLoc(base))
     if (!people.length && location && company && !filters.intern) people = await run(base)
 
-    // Lever 1 — broad-role backfill for field-style queries. When a search maps
-    // to a real title ("GTM Engineer") it finds plenty of exact matches. But a
-    // FIELD query ("cancer researcher") barely matches by title, because those
-    // people are titled "Research Scientist" with the field only in the employer
-    // ("@ BC Cancer"). So when almost nothing matched the exact title AND an
-    // industry is set, run a second pass on just the generic role words
-    // (researcher/scientist/…) scoped to that industry + location, and backfill.
+    // Lever 1 — broad-role backfill for field-style queries. A real title ("GTM
+    // Engineer") finds plenty of exact matches, but a FIELD query ("cancer
+    // researcher") barely matches by title because those people are titled
+    // "Research Scientist" with the field only in the employer ("@ BC Cancer").
+    // So whenever the exact-title pass doesn't FILL the page and an industry is
+    // set, run a second pass on just the generic role words (researcher/scientist
+    // /…) scoped to that industry + location and backfill. This is safe to do
+    // aggressively: the route's AI relevance gate prunes any broad-pass rows that
+    // aren't genuinely on-topic, so over-fetching only ever helps recall.
     const roleWords = requiredSets.length
       ? [...new Set(
           (titleFilter ?? [])
@@ -190,8 +192,7 @@ export const apolloProvider: PeopleProvider = {
             .filter((w) => GENERIC_ROLES.has(w)),
         )]
       : []
-    const relevantCount = people.filter((p) => titleRelevant(p.title)).length
-    if (relevantCount < 3 && roleWords.length && base.organization_industry_tag_ids) {
+    if (people.length < limit && roleWords.length && base.organization_industry_tag_ids) {
       const broad = await run(withLoc({ ...base, person_titles: roleWords }))
       const keyOf = (p: ProviderPerson) => p.providerId || `${p.firstName}|${p.company}`
       const seen = new Set(people.map(keyOf))

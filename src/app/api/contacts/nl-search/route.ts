@@ -159,7 +159,7 @@ Rules:
     sources,
     fallbackSources: ['coresignal'] as ProviderName[], // coverage backfill when Apollo is thin
     minResults: 5,
-    limit: 10,
+    limit: 25,
   }
   let { rows, sourcesQueried, errors } = await searchAll(filters, searchOpts)
   let effectiveFilters: SearchFilters = filters

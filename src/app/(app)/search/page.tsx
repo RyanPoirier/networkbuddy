@@ -304,13 +304,6 @@ function SearchContent() {
                             ? `${r.firstName}${r.lastName ? ` ${r.lastName.charAt(0)}.` : ''}`.trim()
                             : `${r.firstName} ${r.lastName}`.trim()}
                       </div>
-                      <div className="flex gap-1 mt-1">
-                        {r.sources.map(s => (
-                          <span key={s} className="text-[9px] font-semibold uppercase tracking-wide text-content/45 bg-content/8 rounded px-1.5 py-0.5">
-                            {SOURCE_LABELS[s]}
-                          </span>
-                        ))}
-                      </div>
                     </td>
                     <td className="px-4 py-3 text-content/70">{r.title || '—'}</td>
                     <td className="px-4 py-3 text-content/70">{r.company || '—'}</td>

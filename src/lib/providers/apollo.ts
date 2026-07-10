@@ -78,6 +78,26 @@ export const apolloProvider: PeopleProvider = {
     }
     if (titles.length) base.person_titles = titles
 
+    // Precision guard for explicit title queries. Apollo's person_titles match
+    // is loose — "GTM Engineer" pulls in every "Engineer" — so we post-filter to
+    // rows whose ACTUAL title contains all the significant words (3+ chars) of at
+    // least one requested title. "GTM Engineer" then keeps only titles with both
+    // "gtm" and "engineer", dropping generic "Founding Engineer" rows. To keep
+    // enough matches after filtering, we fetch a wider page and slice down.
+    // Only when NO company is named — a company constraint (e.g. "analysts at
+    // RBC") already gives precision, and those titles vary too much ("Analyst",
+    // "IB Analyst") to demand an exact word match.
+    const titleFilter = !filters.intern && !company && filters.person_titles?.length ? filters.person_titles : null
+    const requiredSets = (titleFilter ?? [])
+      .map((t) => t.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3))
+      .filter((set) => set.length > 0)
+    const titleRelevant = (title: string): boolean => {
+      if (!requiredSets.length) return true
+      const t = title.toLowerCase()
+      return requiredSets.some((set) => set.every((w) => t.includes(w)))
+    }
+    if (requiredSets.length) base.per_page = Math.min(limit * 4, 100)
+
     if (filters.organization_num_employees_ranges?.length) {
       base.organization_num_employees_ranges = filters.organization_num_employees_ranges
     }
@@ -107,6 +127,8 @@ export const apolloProvider: PeopleProvider = {
       const data = await res.json()
       return (data.people ?? [])
         .filter((p: ApolloPerson) => (p.first_name ?? p.name ?? '').trim())
+        .filter((p: ApolloPerson) => titleRelevant(p.title ?? ''))
+        .slice(0, limit)
         .map((p: ApolloPerson): ProviderPerson => ({
           provider: 'apollo',
           providerId: p.id ?? '',
@@ -123,12 +145,16 @@ export const apolloProvider: PeopleProvider = {
         }))
     }
 
-    // Respect the requested location. Apollo filters on PROFILE location, so it
-    // can't find out-of-town interns (that's the Pro/PDL feature) — but it must
-    // NOT silently broaden to global results, which is how "Toronto" searches
-    // leaked BCG India. Few accurate local results beat a global flood; if it's
-    // empty, the UI shows the empty state + the Pro upsell.
-    if (location) return run({ ...base, person_locations: location })
+    // Respect the requested location. Apollo filters on PROFILE location, which
+    // is sparse: a strict "at RBC in Toronto" filter often returns 0 even though
+    // RBC's Toronto analysts exist. So when a company is named and the located
+    // search comes back empty, fall back to company-only rather than showing
+    // nothing. We do NOT fall back for intern queries — dropping location there
+    // silently broadens a global firm to its overseas offices (the old "BCG
+    // interns -> India" bug). Without a company, we also never broaden.
+    if (!location) return run(base)
+    const located = await run({ ...base, person_locations: location })
+    if (located.length || !company || filters.intern) return located
     return run(base)
   },
 }

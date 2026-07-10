@@ -32,8 +32,8 @@ async function judgeRelevance(
   client: Anthropic,
   query: string,
   rows: MergedPerson[],
-): Promise<{ rows: MergedPerson[]; removed: number }> {
-  if (rows.length < 2) return { rows, removed: 0 }
+): Promise<{ rows: MergedPerson[]; removed: number; dropped: MergedPerson[] }> {
+  if (rows.length < 2) return { rows, removed: 0, dropped: [] }
 
   const candidates = rows
     .map((r, i) => `${i}. ${r.title || 'Unknown title'} — ${r.company || 'Unknown company'}${r.location ? ` (${r.location})` : ''}`)
@@ -57,20 +57,22 @@ ${candidates}`
     })
     const txt = msg.content[0]?.type === 'text' ? msg.content[0].text : ''
     const match = txt.match(/\{[\s\S]*\}/)
-    if (!match) return { rows, removed: 0 }
+    if (!match) return { rows, removed: 0, dropped: [] }
     const keep = (JSON.parse(match[0]) as { keep?: unknown }).keep
-    if (!Array.isArray(keep)) return { rows, removed: 0 }
+    if (!Array.isArray(keep)) return { rows, removed: 0, dropped: [] }
 
-    const picked = keep
-      .filter((i): i is number => Number.isInteger(i) && i >= 0 && i < rows.length)
-      .map((i) => rows[i])
+    const keepSet = new Set(
+      keep.filter((i): i is number => Number.isInteger(i) && i >= 0 && i < rows.length),
+    )
+    const picked = [...keepSet].map((i) => rows[i])
 
     // Safety net: the judge may prune but not empty the page (guards against an
     // over-strict or malformed response showing nothing on a valid search).
-    if (!picked.length) return { rows, removed: 0 }
-    return { rows: picked, removed: rows.length - picked.length }
+    if (!picked.length) return { rows, removed: 0, dropped: [] }
+    const dropped = rows.filter((_, i) => !keepSet.has(i))
+    return { rows: picked, removed: dropped.length, dropped }
   } catch {
-    return { rows, removed: 0 }
+    return { rows, removed: 0, dropped: [] }
   }
 }
 
@@ -211,7 +213,7 @@ Rules:
     rows,
     filters: appliedFilters,
     premiumLocked,
-    vetted: { removed: vetted.removed },
+    vetted: { removed: vetted.removed, dropped: vetted.dropped },
     sources: { queried: sourcesQueried, errors, configured: configuredProviders() },
     usage: { plan: usage.plan, used: usage.used, quota: usage.quota },
   })

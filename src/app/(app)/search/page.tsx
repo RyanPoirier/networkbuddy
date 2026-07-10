@@ -69,7 +69,7 @@ function SearchContent() {
   const [quotaHit, setQuotaHit] = useState(false)
   const [sourceInfo, setSourceInfo] = useState<SourceInfo | null>(null)
   const [premiumLocked, setPremiumLocked] = useState(false)
-  const [vetted, setVetted] = useState<{ removed: number } | null>(null)
+  const [vetted, setVetted] = useState<{ removed: number; dropped?: Row[] } | null>(null)
 
   useEffect(() => {
     // Show the plan / god-mode badge on load, before any search runs.
@@ -364,6 +364,28 @@ function SearchContent() {
               </button>
             )}
           </div>
+
+          {/* Audit: rows the AI relevance gate dropped, so you can spot false negatives. */}
+          {vetted?.dropped && vetted.dropped.length > 0 && (
+            <details className="mt-4">
+              <summary className="cursor-pointer select-none text-xs font-medium text-content/45 hover:text-content/70">
+                🔍 Audit — {vetted.dropped.length} filtered out by AI (click to inspect)
+              </summary>
+              <div className="mt-2 rounded-xl border border-line/10 bg-bg/40 divide-y divide-line/5">
+                {vetted.dropped.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-2 text-sm text-content/50">
+                    <span className="font-medium text-content/70 shrink-0">
+                      {r.firstName} {r.lastNameMasked ? `${(r.lastName || '').charAt(0)}.` : r.lastName}
+                    </span>
+                    <span className="text-content/45 truncate">— {r.title || '—'}</span>
+                    <span className="text-content/35 truncate">@ {r.company || '—'}</span>
+                    {r.location && <span className="text-content/30 truncate hidden sm:inline">· {r.location}</span>}
+                    <span className="ml-auto text-[9px] uppercase tracking-wide text-content/35 shrink-0">{(r.sources || []).join('+')}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
         </div>
       )}
 

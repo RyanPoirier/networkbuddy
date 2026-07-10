@@ -28,6 +28,17 @@ const INDUSTRY_TAGS: Record<string, string> = {
 
 const EARLY_STAGE_FUNDING = ['Seed', 'Series A', 'Series B']
 
+// Generic role nouns used by Lever 1: for a field query like "cancer
+// researcher" whose exact title barely matches, we re-search on just the role
+// word ("researcher") scoped to the industry + location. These are the words
+// that describe a role rather than a specialty/field.
+const GENERIC_ROLES = new Set([
+  'engineer', 'researcher', 'scientist', 'analyst', 'manager', 'developer',
+  'associate', 'specialist', 'consultant', 'director', 'designer', 'coordinator',
+  'administrator', 'technician', 'physician', 'nurse', 'professor', 'lead',
+  'officer', 'advisor', 'strategist', 'architect', 'recruiter', 'accountant',
+])
+
 interface ApolloPerson {
   id?: string
   first_name?: string
@@ -125,6 +136,7 @@ export const apolloProvider: PeopleProvider = {
       company || titles.length || base.organization_industry_tag_ids || base.q_keywords || location
     if (!hasConstraint) return []
 
+    // Raw Apollo call → mapped rows (all of them, unordered/unsliced).
     const run = async (body: Record<string, unknown>): Promise<ProviderPerson[]> => {
       const res = await fetch('https://api.apollo.io/api/v1/mixed_people/api_search', {
         method: 'POST',
@@ -133,17 +145,8 @@ export const apolloProvider: PeopleProvider = {
       })
       if (!res.ok) return []
       const data = await res.json()
-      const named = (data.people ?? [])
+      return (data.people ?? [])
         .filter((p: ApolloPerson) => (p.first_name ?? p.name ?? '').trim())
-      // Rank title-relevant rows first, then backfill with the rest; slice down.
-      const ordered = requiredSets.length
-        ? [
-            ...named.filter((p: ApolloPerson) => titleRelevant(p.title ?? '')),
-            ...named.filter((p: ApolloPerson) => !titleRelevant(p.title ?? '')),
-          ]
-        : named
-      return ordered
-        .slice(0, limit)
         .map((p: ApolloPerson): ProviderPerson => ({
           provider: 'apollo',
           providerId: p.id ?? '',
@@ -160,6 +163,9 @@ export const apolloProvider: PeopleProvider = {
         }))
     }
 
+    const withLoc = (body: Record<string, unknown>) =>
+      location ? { ...body, person_locations: location } : body
+
     // Respect the requested location. Apollo filters on PROFILE location, which
     // is sparse: a strict "at RBC in Toronto" filter often returns 0 even though
     // RBC's Toronto analysts exist. So when a company is named and the located
@@ -167,9 +173,38 @@ export const apolloProvider: PeopleProvider = {
     // nothing. We do NOT fall back for intern queries — dropping location there
     // silently broadens a global firm to its overseas offices (the old "BCG
     // interns -> India" bug). Without a company, we also never broaden.
-    if (!location) return run(base)
-    const located = await run({ ...base, person_locations: location })
-    if (located.length || !company || filters.intern) return located
-    return run(base)
+    let people = await run(withLoc(base))
+    if (!people.length && location && company && !filters.intern) people = await run(base)
+
+    // Lever 1 — broad-role backfill for field-style queries. When a search maps
+    // to a real title ("GTM Engineer") it finds plenty of exact matches. But a
+    // FIELD query ("cancer researcher") barely matches by title, because those
+    // people are titled "Research Scientist" with the field only in the employer
+    // ("@ BC Cancer"). So when almost nothing matched the exact title AND an
+    // industry is set, run a second pass on just the generic role words
+    // (researcher/scientist/…) scoped to that industry + location, and backfill.
+    const roleWords = requiredSets.length
+      ? [...new Set(
+          (titleFilter ?? [])
+            .flatMap((t) => t.toLowerCase().split(/[^a-z0-9]+/))
+            .filter((w) => GENERIC_ROLES.has(w)),
+        )]
+      : []
+    const relevantCount = people.filter((p) => titleRelevant(p.title)).length
+    if (relevantCount < 3 && roleWords.length && base.organization_industry_tag_ids) {
+      const broad = await run(withLoc({ ...base, person_titles: roleWords }))
+      const keyOf = (p: ProviderPerson) => p.providerId || `${p.firstName}|${p.company}`
+      const seen = new Set(people.map(keyOf))
+      for (const p of broad) {
+        const k = keyOf(p)
+        if (!seen.has(k)) { seen.add(k); people.push(p) }
+      }
+    }
+
+    // Rank exact-title matches first, then slice to the page size.
+    const ordered = requiredSets.length
+      ? [...people.filter((p) => titleRelevant(p.title)), ...people.filter((p) => !titleRelevant(p.title))]
+      : people
+    return ordered.slice(0, limit)
   },
 }

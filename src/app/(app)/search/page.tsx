@@ -71,6 +71,11 @@ function SearchContent() {
   const [premiumLocked, setPremiumLocked] = useState(false)
 
   useEffect(() => {
+    // Show the plan / god-mode badge on load, before any search runs.
+    fetch('/api/usage')
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d && !d.error) setUsage(d) })
+      .catch(() => {})
     if (initialCompany) handleSearch(`People at ${initialCompany}`)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -156,6 +161,7 @@ function SearchContent() {
 
   return (
     <div className="max-w-5xl mx-auto">
+      <style>{`@keyframes nb-rainbow{to{background-position:200% center}}.god-mode{background-image:linear-gradient(90deg,#ff3b3b,#ff9f1c,#ffe600,#2ecc40,#1e90ff,#b23bff,#ff3b3b);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;animation:nb-rainbow 2.2s linear infinite}`}</style>
       <div className="mb-7 flex items-end justify-between gap-4">
         <div>
           <div className="inline-flex items-center gap-2 mb-3">
@@ -169,10 +175,23 @@ function SearchContent() {
         </div>
         {usage && (
           <div className="shrink-0 text-right bg-surface/50 border border-line/10 rounded-2xl px-4 py-2.5">
-            <div className="text-[10px] text-content/50 uppercase tracking-[0.15em] font-semibold">{usage.plan} plan</div>
-            <div className="text-sm font-bold text-content mt-0.5">
-              {Math.max(0, usage.quota - usage.used)}<span className="text-content/45 font-medium">/{usage.quota} reveals</span>
-            </div>
+            {usage.plan === 'unlimited' ? (
+              <>
+                <div className="text-[10px] uppercase tracking-[0.2em] font-extrabold">
+                  <span className="god-mode">God</span> <span className="text-content/50">mode</span>
+                </div>
+                <div className="text-sm font-bold text-content mt-0.5">
+                  {Math.max(0, usage.quota - usage.used)}<span className="text-content/45 font-medium"> reveals</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-[10px] text-content/50 uppercase tracking-[0.15em] font-semibold">{usage.plan} plan</div>
+                <div className="text-sm font-bold text-content mt-0.5">
+                  {Math.max(0, usage.quota - usage.used)}<span className="text-content/45 font-medium">/{usage.quota} reveals</span>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -279,7 +298,11 @@ function SearchContent() {
                   <tr key={r.key || i} className="border-b border-line/5 last:border-0 hover:bg-bg/40">
                     <td className="px-4 py-3">
                       <div className="font-medium text-content">
-                        {r.fullName ?? `${r.firstName} ${r.lastName}`.trim()}
+                        {r.fullName
+                          ? r.fullName
+                          : r.lastNameMasked
+                            ? `${r.firstName}${r.lastName ? ` ${r.lastName.charAt(0)}.` : ''}`.trim()
+                            : `${r.firstName} ${r.lastName}`.trim()}
                       </div>
                       <div className="flex gap-1 mt-1">
                         {r.sources.map(s => (

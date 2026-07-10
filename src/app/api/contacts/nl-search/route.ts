@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-import { getUsage } from '@/lib/quota'
+import { getUsage, isPremium } from '@/lib/quota'
 import { searchAll, configuredProviders, SearchFilters, ProviderName } from '@/lib/providers'
 
 function extractJson(raw: string): SearchFilters | null {
@@ -80,7 +80,7 @@ Rules:
   }
 
   const usage = await getUsage(user.id)
-  const isPro = usage.plan === 'pro'
+  const isPro = isPremium(usage.plan) // pro or unlimited (god mode)
 
   // 2. Source policy + premium gate.
   //  - Apollo always runs (cheap browse).

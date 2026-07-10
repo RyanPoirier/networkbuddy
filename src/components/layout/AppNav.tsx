@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { LayoutDashboard, Search, Kanban, LogOut, Settings, Sun, Moon, Monitor, Send } from 'lucide-react'
+import { LayoutDashboard, Search, Kanban, LogOut, Settings, Sun, Moon, Monitor, Send, UserCog } from 'lucide-react'
 import { useTheme, type ThemePref } from '@/lib/useTheme'
 
 const NAV_ITEMS = [
@@ -130,12 +130,12 @@ export default function AppNav({ userName }: { userName: string }) {
             <div className="h-px bg-line/10 my-1" />
 
             <Link
-              href="/settings"
+              href="/account"
               onClick={() => setMenuOpen(false)}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-content/70 hover:text-content hover:bg-content/5 transition-colors"
             >
-              <Settings className="w-4 h-4 flex-shrink-0" />
-              Settings
+              <UserCog className="w-4 h-4 flex-shrink-0" />
+              Account
             </Link>
             <button
               onClick={handleSignOut}

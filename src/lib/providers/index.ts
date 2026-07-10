@@ -2,10 +2,11 @@ import { PeopleProvider, ProviderName, ProviderPerson, SearchFilters } from './t
 import { apolloProvider } from './apollo'
 import { pdlProvider } from './pdl'
 import { coresignalProvider } from './coresignal'
+import { exaProvider } from './exa'
 
 export * from './types'
 
-const ALL: PeopleProvider[] = [apolloProvider, pdlProvider, coresignalProvider]
+const ALL: PeopleProvider[] = [apolloProvider, pdlProvider, coresignalProvider, exaProvider]
 
 // A person merged across the sources that found them.
 export interface MergedPerson {

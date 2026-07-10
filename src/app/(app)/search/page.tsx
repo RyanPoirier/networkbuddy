@@ -18,7 +18,7 @@ interface Filters {
   person_name?: string | null
 }
 
-type Source = 'apollo' | 'pdl' | 'coresignal'
+type Source = 'apollo' | 'pdl' | 'coresignal' | 'exa'
 
 interface Row {
   key: string
@@ -45,7 +45,7 @@ interface SourceInfo {
   configured: Source[]
 }
 
-const SOURCE_LABELS: Record<Source, string> = { apollo: 'Apollo', pdl: 'PDL', coresignal: 'Coresignal' }
+const SOURCE_LABELS: Record<Source, string> = { apollo: 'Apollo', pdl: 'PDL', coresignal: 'Coresignal', exa: 'Exa' }
 
 const EXAMPLES = [
   'Investment banking analysts at RBC in Toronto',

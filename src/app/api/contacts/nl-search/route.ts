@@ -131,6 +131,10 @@ Rules:
     return NextResponse.json({ rows: [], source: 'parse_failed' })
   }
 
+  // Semantic providers (Exa) search the user's original words, not the parsed
+  // filters — "IB analysts" carries meaning the structured fields lose.
+  filters.raw_query = query
+
   const usage = await getUsage(user.id)
   const isPro = isPremium(usage.plan) // pro or unlimited (god mode)
 
@@ -151,7 +155,10 @@ Rules:
     // Explicit request (e.g. an "all sources" button) — but never PDL for free.
     sources = requestedSources.filter((s: ProviderName) => s !== 'pdl' || isPro)
   } else {
-    sources = ['apollo']
+    // Exa is the semantic discovery engine (skipped automatically when its key
+    // isn't set); Apollo rides along for masked rows that carry an apolloId,
+    // which is what powers 1-credit email reveals.
+    sources = ['apollo', 'exa']
     if (historyIntent && isPro) sources.push('pdl')
   }
 

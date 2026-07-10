@@ -2,7 +2,7 @@
 // A single normalized row shape lets the UI treat every source the same and
 // lets the registry dedupe the same person found by multiple providers.
 
-export type ProviderName = 'apollo' | 'pdl' | 'coresignal'
+export type ProviderName = 'apollo' | 'pdl' | 'coresignal' | 'exa'
 
 // Parsed search intent. Current-role fields drive Apollo; the history fields
 // (past_*, intern, experience_year) and person_name unlock PDL / Coresignal,
@@ -23,6 +23,10 @@ export interface SearchFilters {
   experience_year?: number | null
   // A specific person named in the query
   person_name?: string | null
+  // The user's original natural-language query, untouched. Semantic providers
+  // (Exa) search on this directly — it carries intent the structured filters
+  // lose ("IB analysts", "people working on payments").
+  raw_query?: string | null
 }
 
 export interface ProviderPerson {

@@ -52,7 +52,7 @@ ${candidates}`
   try {
     const msg = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 400,
+      max_tokens: 900,
       messages: [{ role: 'user', content: prompt }],
     })
     const txt = msg.content[0]?.type === 'text' ? msg.content[0].text : ''
@@ -159,7 +159,7 @@ Rules:
     sources,
     fallbackSources: ['coresignal'] as ProviderName[], // coverage backfill when Apollo is thin
     minResults: 5,
-    limit: 25,
+    limit: 50,
   }
   let { rows, sourcesQueried, errors } = await searchAll(filters, searchOpts)
   let effectiveFilters: SearchFilters = filters

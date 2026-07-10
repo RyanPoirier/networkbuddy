@@ -64,8 +64,11 @@ export const apolloProvider: PeopleProvider = {
     const apolloKey = process.env.APOLLO_API_KEY
     if (!apolloKey) return []
 
-    // Base filters (everything except location).
-    const base: Record<string, unknown> = { page: 1, per_page: limit }
+    // Base filters (everything except location). Always pull a full Apollo page
+    // (100 = Apollo's max per_page) so we have real depth to rank, backfill, and
+    // AI-vet down to the display limit — a small per_page was silently capping
+    // company searches like "IB analysts at RBC" long before Apollo ran dry.
+    const base: Record<string, unknown> = { page: 1, per_page: 100 }
 
     // Map history-encoded intent onto Apollo's CURRENT-role fields. Apollo can't
     // search history, but for a free fallback on "interns at BCG" it should at
@@ -115,7 +118,6 @@ export const apolloProvider: PeopleProvider = {
       const t = title.toLowerCase()
       return requiredSets.some((set) => set.every((w) => t.includes(w)))
     }
-    if (requiredSets.length) base.per_page = Math.min(limit * 4, 100)
 
     if (filters.organization_num_employees_ranges?.length) {
       base.organization_num_employees_ranges = filters.organization_num_employees_ranges

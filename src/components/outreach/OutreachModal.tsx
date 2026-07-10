@@ -73,34 +73,34 @@ export default function OutreachModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+      <div className="bg-surface rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col theme-transition">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-100">
+        <div className="flex items-center justify-between p-6 border-b border-line/10">
           <div>
-            <h2 className="font-bold text-[#0f1f3d] text-lg">Outreach for {contact.full_name}</h2>
-            <p className="text-sm text-slate-500">{contact.title} · {contact.company}</p>
+            <h2 className="font-display font-bold text-content text-lg">Outreach for {contact.full_name}</h2>
+            <p className="text-sm text-content/55">{contact.title} · {contact.company}</p>
           </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors">
+          <button onClick={onClose} className="p-2 text-content/45 hover:text-content/80 rounded-xl hover:bg-content/5 transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {loading ? (
-          <div className="flex-1 flex flex-col items-center justify-center py-16 text-slate-400">
-            <Loader2 className="w-8 h-8 animate-spin text-[#f97316] mb-3" />
+          <div className="flex-1 flex flex-col items-center justify-center py-16 text-content/45">
+            <Loader2 className="w-8 h-8 animate-spin text-accent mb-3" />
             <p className="text-sm">Generating personalized messages...</p>
           </div>
         ) : error ? (
           <div className="flex-1 flex flex-col items-center justify-center py-16">
             <p className="text-red-500 text-sm mb-4">{error}</p>
-            <button onClick={generateMessages} className="text-[#f97316] font-medium text-sm hover:underline">
+            <button onClick={generateMessages} className="text-accent font-medium text-sm hover:underline">
               Try again
             </button>
           </div>
         ) : (
           <>
             {/* Tabs */}
-            <div className="flex border-b border-slate-100">
+            <div className="flex border-b border-line/10">
               {[
                 { key: 'email' as const, label: 'Email', icon: Mail },
                 { key: 'linkedin' as const, label: 'LinkedIn', icon: LinkedInIcon },
@@ -110,8 +110,8 @@ export default function OutreachModal({
                   onClick={() => setTab(key)}
                   className={`flex items-center gap-2 px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
                     tab === key
-                      ? 'border-[#f97316] text-[#f97316]'
-                      : 'border-transparent text-slate-500 hover:text-[#0f1f3d]'
+                      ? 'border-accent text-accent'
+                      : 'border-transparent text-content/55 hover:text-content'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -124,28 +124,28 @@ export default function OutreachModal({
               {tab === 'email' ? (
                 <>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Subject</label>
+                    <label className="block text-xs font-medium text-content/60 mb-1.5 uppercase tracking-wide">Subject</label>
                     <input
                       value={emailSubject}
                       onChange={e => setEmailSubject(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-[#0f1f3d] focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent"
+                      className="w-full bg-transparent border border-line/15 rounded-xl px-4 py-2.5 text-sm text-content focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1.5 uppercase tracking-wide">Body</label>
+                    <label className="block text-xs font-medium text-content/60 mb-1.5 uppercase tracking-wide">Body</label>
                     <textarea
                       value={emailBody}
                       onChange={e => setEmailBody(e.target.value)}
                       rows={12}
-                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0f1f3d] focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent resize-none leading-relaxed"
+                      className="w-full bg-transparent border border-line/15 rounded-xl px-4 py-3 text-sm text-content focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none leading-relaxed"
                     />
                   </div>
                 </>
               ) : (
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide">Message</label>
-                    <span className={`text-xs ${linkedinMsg.length > 300 ? 'text-red-500' : 'text-slate-400'}`}>
+                    <label className="block text-xs font-medium text-content/60 uppercase tracking-wide">Message</label>
+                    <span className={`text-xs ${linkedinMsg.length > 300 ? 'text-red-500' : 'text-content/45'}`}>
                       {linkedinMsg.length}/300 chars
                     </span>
                   </div>
@@ -153,18 +153,18 @@ export default function OutreachModal({
                     value={linkedinMsg}
                     onChange={e => setLinkedinMsg(e.target.value)}
                     rows={6}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-[#0f1f3d] focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent resize-none leading-relaxed"
+                    className="w-full bg-transparent border border-line/15 rounded-xl px-4 py-3 text-sm text-content focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent resize-none leading-relaxed"
                   />
                 </div>
               )}
             </div>
 
             {/* Footer actions */}
-            <div className="p-6 border-t border-slate-100 flex gap-3">
+            <div className="p-6 border-t border-line/10 flex gap-3">
               {tab === 'email' ? (
                 <a
                   href={mailtoHref}
-                  className="flex-1 flex items-center justify-center gap-2 bg-[#0f1f3d] hover:bg-[#1a3560] text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+                  className="flex-1 flex items-center justify-center gap-2 bg-accent hover:bg-accent-hover text-white font-semibold py-3 rounded-xl transition-colors text-sm"
                 >
                   <Mail className="w-4 h-4" />
                   Open in Email Client
@@ -173,7 +173,7 @@ export default function OutreachModal({
                 <>
                   <button
                     onClick={handleCopyLinkedin}
-                    className="flex items-center gap-2 border border-slate-200 text-[#0f1f3d] hover:bg-slate-50 font-medium px-4 py-3 rounded-xl transition-colors text-sm"
+                    className="flex items-center gap-2 border border-line/15 text-content hover:bg-content/5 font-medium px-4 py-3 rounded-xl transition-colors text-sm"
                   >
                     {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                     {copied ? 'Copied!' : 'Copy'}

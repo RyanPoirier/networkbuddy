@@ -1,18 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
-import { getUsage, consumeReveals } from '@/lib/quota'
+import { getUsage } from '@/lib/quota'
+import { searchAll, configuredProviders, SearchFilters, ProviderName } from '@/lib/providers'
 
-// Parse a natural-language query into Apollo search filters.
-interface ApolloFilters {
-  q_organization_name?: string | null
-  person_titles?: string[] | null
-  person_locations?: string[] | null
-  organization_num_employees_ranges?: string[] | null
-  q_keywords?: string | null
-}
-
-function extractJson(raw: string): ApolloFilters | null {
+function extractJson(raw: string): SearchFilters | null {
   const stripped = raw.replace(/```json\n?|\n?```/g, '').trim()
   try {
     return JSON.parse(stripped)
@@ -35,34 +27,44 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { query } = await request.json()
+  const { query, sources: requestedSources } = await request.json()
   if (!query || !query.trim()) {
     return NextResponse.json({ error: 'query required' }, { status: 400 })
   }
 
-  const apolloKey = process.env.APOLLO_API_KEY
-  if (!apolloKey) return NextResponse.json({ contacts: [], source: 'no_api_key' })
+  const thisYear = new Date().getFullYear()
 
-  // 1. Claude turns the natural-language query into Apollo filters.
-  const prompt = `You convert a natural-language people-search query into Apollo API filters.
+  // 1. Claude turns the natural-language query into structured filters.
+  const prompt = `You convert a natural-language people-search query into structured filters.
+The current year is ${thisYear}.
 
 Query: "${query}"
 
 Return ONLY JSON with these optional fields (omit or null when not implied):
 {
-  "q_organization_name": string | null,        // a SPECIFIC company name if named (e.g. "RBC"), else null
-  "person_titles": string[] | null,            // job titles/roles, e.g. ["Investment Banking Analyst"]
+  "q_organization_name": string | null,        // a SPECIFIC current company if named (e.g. "RBC")
+  "person_titles": string[] | null,            // current job titles/roles
   "person_locations": string[] | null,         // e.g. ["Vancouver, Canada"] — expand cities to "City, Country"
-  "organization_num_employees_ranges": string[] | null, // company-size hints as "min,max" strings
-  "q_keywords": string | null                  // any leftover free-text keywords
+  "organization_num_employees_ranges": string[] | null, // company-size hints as "min,max"
+  "industries": string[] | null,               // pick 1-3 EXACT names from the allowed list below, or null
+  "early_stage": boolean | null,               // true only for startup / early-stage intent
+  "q_keywords": string | null,                 // leftover free-text (almost always null)
+  "past_company": string | null,               // a company the person USED TO work at ("interned at BCG", "ex-Google")
+  "past_title": string | null,                 // a past role keyword ("intern", "analyst")
+  "intern": boolean | null,                     // true if about interns / internships / co-ops
+  "experience_year": number | null,             // year of the experience ("last year" -> ${thisYear - 1}, "in 2024" -> 2024)
+  "person_name": string | null                  // a specific person's name if the query names one
 }
 
+Allowed industry names (EXACT strings only, else null):
+computer software, internet, information technology & services, financial services, management consulting, marketing & advertising, real estate, hospital & health care, health, wellness & fitness, retail, consumer services, education management, food & beverages, restaurants, design, accounting, hospitality, automotive, construction, events services
+
 Rules:
-- "boutique", "small", "startup" firms -> organization_num_employees_ranges like ["1,10","11,50","51,200"]. NEVER put these words anywhere else.
-- "mid-size" -> ["201,500","501,1000"]. "large"/"enterprise" -> ["1001,5000","5001,10000","10001,50000"].
-- Only set q_organization_name when a real company is named; do NOT put "boutique firms" there.
-- person_titles: give a few sensible variants of the role (e.g. ["Asset Management","Investment Analyst","Portfolio Manager"]). Keep them realistic, not hyper-specific.
-- q_keywords: almost always null. Apollo matches it against literal profile text, so it over-filters badly. Only set it if there are NO titles and NO company — never duplicate the role or put qualitative words like "boutique" in it.
+- "boutique"/"small"/"startup" -> organization_num_employees_ranges ["1,10","11,50"]. "startup" ALSO sets early_stage:true and (unless another industry is named) industries ["computer software","internet","information technology & services"].
+- Map sector words to the allowed list: "finance"/"investment"/"banking"/"asset management" -> "financial services"; "consulting" -> "management consulting"; "healthcare"/"hospital" -> "hospital & health care"; "marketing"/"advertising"/"agency" -> "marketing & advertising". No clean map -> null.
+- PAST/HISTORY intent (this is important): "interned at X" / "was an X at Y" / "ex-Y" / "previously/formerly at Y" / "used to work at Y" -> set past_company (and/or past_title). "intern"/"internship"/"co-op" -> intern:true. "last year" -> experience_year ${thisYear - 1}; "this summer"/"currently" is NOT past.
+- If a specific person is named (e.g. "Alice Mandlis"), set person_name to their full name.
+- Only set q_organization_name for a real CURRENT company; use past_company for former employers.
 - Keep it minimal and accurate.`
 
   const client = new Anthropic()
@@ -74,110 +76,50 @@ Rules:
   const content = message.content[0]
   const filters = content.type === 'text' ? extractJson(content.text) : null
   if (!filters) {
-    return NextResponse.json({ contacts: [], source: 'parse_failed' })
+    return NextResponse.json({ rows: [], source: 'parse_failed' })
   }
 
-  // 2. Build the Apollo request body from the parsed filters.
-  const body: Record<string, unknown> = { page: 1, per_page: 10 }
-  if (filters.q_organization_name) body.q_organization_name = filters.q_organization_name
-  if (filters.person_titles?.length) body.person_titles = filters.person_titles
-  if (filters.person_locations?.length) body.person_locations = filters.person_locations
-  if (filters.organization_num_employees_ranges?.length)
-    body.organization_num_employees_ranges = filters.organization_num_employees_ranges
-  // q_keywords over-filters hard (it matches literal profile text), so only use
-  // it as a last resort when we have no titles and no company to search on.
-  if (filters.q_keywords && !filters.person_titles?.length && !filters.q_organization_name) {
-    body.q_keywords = filters.q_keywords
+  const usage = await getUsage(user.id)
+  const isPro = usage.plan === 'pro'
+
+  // 2. Source policy + premium gate.
+  //  - Apollo always runs (cheap browse).
+  //  - History Search (PDL) — "past interns / ex-company / by-name" — is a Pro
+  //    feature. Free users still get Apollo's current-role results, plus a flag
+  //    to show the upsell.
+  //  - Coresignal is a coverage fallback that only fires when Apollo is thin.
+  const historyIntent = Boolean(
+    filters.past_company || filters.past_title || filters.intern ||
+    filters.experience_year || filters.person_name
+  )
+  const premiumLocked = historyIntent && !isPro
+
+  let sources: ProviderName[]
+  if (Array.isArray(requestedSources) && requestedSources.length) {
+    // Explicit request (e.g. an "all sources" button) — but never PDL for free.
+    sources = requestedSources.filter((s: ProviderName) => s !== 'pdl' || isPro)
+  } else {
+    sources = ['apollo']
+    if (historyIntent && isPro) sources.push('pdl')
   }
 
-  const apolloRes = await fetch('https://api.apollo.io/api/v1/mixed_people/api_search', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Api-Key': apolloKey },
-    body: JSON.stringify(body),
+  const { rows, sourcesQueried, errors } = await searchAll(filters, {
+    sources,
+    fallbackSources: ['coresignal'], // coverage backfill when Apollo is thin
+    minResults: 5,
+    limit: 10,
   })
 
-  if (!apolloRes.ok) {
-    const err = await apolloRes.text()
-    return NextResponse.json({ contacts: [], source: 'apollo_error', debug: err, filters })
-  }
-
-  const apolloData = await apolloRes.json()
-  interface ApolloPerson {
-    id?: string
-    first_name?: string
-    last_name?: string
-    last_name_obfuscated?: string
-    name?: string
-    title?: string
-    organization?: { name?: string; primary_domain?: string }
-    email?: string
-    linkedin_url?: string
-  }
-  const allPeople: ApolloPerson[] = (apolloData.people ?? []).filter(
-    (p: ApolloPerson) => (p.first_name ?? p.name ?? '').trim()
-  )
-  if (allPeople.length === 0) {
-    return NextResponse.json({ contacts: [], source: 'apollo_empty', filters })
-  }
-
-  // Quota gate: each reveal spends an Apollo credit, so cap by the user's plan.
-  const usage = await getUsage(user.id)
-  if (usage.remaining <= 0) {
-    return NextResponse.json({
-      contacts: [],
-      source: 'quota_exceeded',
-      usage: { plan: usage.plan, used: usage.used, quota: usage.quota },
-    })
-  }
-
-  // Only reveal up to what the user has left this month.
-  const people = allPeople.slice(0, usage.remaining)
-
-  // Reveal real names/emails/LinkedIn via People Enrichment (search obfuscates
-  // last names on the Basic plan). One credit per person — done in parallel.
-  const revealed: ApolloPerson[] = await Promise.all(
-    people.map(async (p) => {
-      if (!p.id) return p
-      try {
-        const r = await fetch('https://api.apollo.io/api/v1/people/match', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Api-Key': apolloKey },
-          body: JSON.stringify({ id: p.id }),
-        })
-        if (r.ok) {
-          const d = await r.json()
-          return (d.person as ApolloPerson) ?? p
-        }
-      } catch {}
-      return p
-    })
-  )
-
-  const contacts = revealed.map((p) => ({
-    user_id: user.id,
-    full_name: p.name ?? `${p.first_name ?? ''} ${p.last_name ?? p.last_name_obfuscated ?? ''}`.trim(),
-    title: p.title ?? '',
-    company: p.organization?.name ?? '',
-    domain: p.organization?.primary_domain ?? '',
-    email: p.email ?? null,
-    linkedin_url: p.linkedin_url ?? null,
-    email_verified: false,
-    last_verified_at: new Date().toISOString(),
-  }))
-
-  const { data: inserted } = await supabase.from('contacts').insert(contacts).select()
-
-  // Record the reveals spent.
-  await consumeReveals(user.id, contacts.length)
+  // Honest filter echo: location isn't applied as a hard filter when a company
+  // is named (Apollo's city data is too sparse), so don't advertise it.
+  const locationApplied = Boolean(filters.person_locations?.length && !filters.q_organization_name)
+  const appliedFilters = { ...filters, person_locations: locationApplied ? filters.person_locations : null }
 
   return NextResponse.json({
-    contacts: inserted ?? contacts,
-    source: 'apollo',
-    filters,
-    usage: {
-      plan: usage.plan,
-      used: usage.used + contacts.length,
-      quota: usage.quota,
-    },
+    rows,
+    filters: appliedFilters,
+    premiumLocked,
+    sources: { queried: sourcesQueried, errors, configured: configuredProviders() },
+    usage: { plan: usage.plan, used: usage.used, quota: usage.quota },
   })
 }

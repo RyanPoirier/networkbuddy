@@ -40,7 +40,9 @@ export async function updateSession(request: NextRequest) {
   const url = request.nextUrl.clone()
   const isAuthPage = url.pathname.startsWith('/auth')
   const isOnboarding = url.pathname.startsWith('/onboarding')
-  const isPublic = url.pathname === '/' || url.pathname.startsWith('/api/waitlist') || url.pathname.startsWith('/api/extension')
+  // /api/cron is authenticated by CRON_SECRET (not a user session), so it must
+  // bypass the login redirect — Vercel cron has no session cookie.
+  const isPublic = url.pathname === '/' || url.pathname.startsWith('/api/waitlist') || url.pathname.startsWith('/api/extension') || url.pathname.startsWith('/api/cron')
 
   if (!user && !isAuthPage && !isPublic) {
     url.pathname = '/auth/login'

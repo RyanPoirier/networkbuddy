@@ -17,7 +17,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!profile?.onboarding_complete) redirect('/onboarding')
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
+    <div className="min-h-screen bg-bg flex">
       <AppNav userName={profile.name} />
       <main className="flex-1 ml-64 p-8 min-h-screen">
         {children}

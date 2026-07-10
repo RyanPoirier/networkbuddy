@@ -1,17 +1,54 @@
 @import "tailwindcss";
 
+/* ── Network Buddy brand system ───────────────────────────────────────────
+   Semantic tokens flip between light and dark. Components use the token
+   utilities (bg-bg, bg-surface, text-content, border-line, bg-accent …) so a
+   single `.dark` class on <html> re-themes the whole app.
+   Dark palette is taken from the brand pack's logo-lockup-dark.svg:
+   espresso #2a1710 surface, cream #f2ecd6 text, #e0763f accent. */
 :root {
-  /* Network Buddy brand system */
+  --nb-bg: #f2ecd6;        /* page background — warm cream */
+  --nb-surface: #ffffff;   /* cards / tables / inputs */
+  --nb-sidebar: #efe8ce;   /* nav panel */
+  --nb-content: #2a1710;   /* text & linework — espresso */
+  --nb-line: #2a1710;      /* borders/dividers (used with opacity) */
+  --nb-accent: #c14a19;    /* primary — burnt orange */
+  --nb-accent-hover: #a83d12;
+
+  /* legacy aliases still referenced in a few spots */
   --cream: #f2ecd6;
   --ink: #2a1710;
   --orange: #c14a19;
   --orange-hover: #a83d12;
+  --background: var(--nb-bg);
+  --foreground: var(--nb-content);
+}
 
-  --background: var(--cream);
-  --foreground: var(--ink);
+.dark {
+  /* One flat coffee-brown everywhere. Balanced channels (less red-shift than
+     the #2a1710 wordmark) so it reads brown, not orange. Cards/sidebar are
+     separated by the cream hairline borders, not by shade. */
+  --nb-bg: #212121;        /* fully neutral dark — no orange cast */
+  --nb-surface: #212121;   /* cards/tables share it */
+  --nb-sidebar: #212121;   /* nav panel too */
+  --nb-content: #f2ecd6;   /* cream text */
+  --nb-line: #f2ecd6;      /* cream borders (used with opacity) */
+  --nb-accent: #e0763f;    /* lighter orange that stays legible on espresso */
+  --nb-accent-hover: #c14a19;
+
+  --background: var(--nb-bg);
+  --foreground: var(--nb-content);
 }
 
 @theme inline {
+  --color-bg: var(--nb-bg);
+  --color-surface: var(--nb-surface);
+  --color-sidebar: var(--nb-sidebar);
+  --color-content: var(--nb-content);
+  --color-line: var(--nb-line);
+  --color-accent: var(--nb-accent);
+  --color-accent-hover: var(--nb-accent-hover);
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-cream: var(--cream);
@@ -22,9 +59,16 @@
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--nb-bg);
+  color: var(--nb-content);
   font-family: var(--font-body), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Smooth the light/dark swap on the big surfaces */
+body,
+aside,
+.theme-transition {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
 }
 
 /* Headings & wordmark use the display font */

@@ -93,25 +93,25 @@ function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id: columnKey })
 
   const COLUMN_COLORS: Record<OutreachStatus, string> = {
-    saved: 'bg-slate-400',
+    saved: 'bg-content/40',
     contacted: 'bg-blue-500',
-    followed_up: 'bg-yellow-500',
-    responded: 'bg-green-500',
-    coffee_chat_booked: 'bg-[#f97316]',
-    referral_received: 'bg-purple-500',
+    followed_up: 'bg-amber-500',
+    responded: 'bg-emerald-500',
+    coffee_chat_booked: 'bg-accent',
+    referral_received: 'bg-violet-500',
   }
 
   return (
     <div
       ref={setNodeRef}
       className={`flex-shrink-0 w-64 rounded-2xl p-3 transition-colors ${
-        isOver ? 'bg-orange-50 border-2 border-[#f97316]' : 'bg-slate-100 border-2 border-transparent'
+        isOver ? 'bg-accent/10 border-2 border-accent' : 'bg-content/5 border-2 border-transparent'
       }`}
     >
       <div className="flex items-center gap-2 mb-3 px-1">
         <div className={`w-2 h-2 rounded-full ${COLUMN_COLORS[columnKey]}`} />
-        <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide">{label}</span>
-        <span className="ml-auto text-xs font-bold text-slate-400 bg-slate-200 rounded-full px-1.5 py-0.5">
+        <span className="text-xs font-semibold text-content/60 uppercase tracking-wide">{label}</span>
+        <span className="ml-auto text-xs font-bold text-content/50 bg-content/10 rounded-full px-1.5 py-0.5">
           {records.length}
         </span>
       </div>
@@ -139,29 +139,29 @@ function KanbanCard({ record }: { record: OutreachRecord }) {
         ref={setNodeRef}
         {...listeners}
         {...attributes}
-        className={`kanban-card bg-white rounded-xl p-3 shadow-sm border border-slate-100 transition-opacity ${
+        className={`kanban-card bg-surface rounded-xl p-3 shadow-sm border border-line/10 transition-opacity ${
           isDragging ? 'opacity-30' : ''
         }`}
       >
         <div className="flex items-start gap-2 mb-2">
-          <div className="w-8 h-8 bg-[#0f1f3d] rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+          <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             {record.contact?.full_name?.[0] ?? '?'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-[#0f1f3d] truncate leading-tight">
+            <p className="text-sm font-semibold text-content truncate leading-tight">
               {record.contact?.full_name}
             </p>
-            <p className="text-xs text-slate-400 truncate">{record.contact?.title}</p>
+            <p className="text-xs text-content/45 truncate">{record.contact?.title}</p>
           </div>
           {followupDue && (
-            <span className="flex-shrink-0 w-2 h-2 bg-[#f97316] rounded-full badge-followup" title="Follow up due" />
+            <span className="flex-shrink-0 w-2 h-2 bg-accent rounded-full badge-followup" title="Follow up due" />
           )}
         </div>
 
-        <p className="text-xs text-slate-500 mb-3 truncate">{record.contact?.company}</p>
+        <p className="text-xs text-content/55 mb-3 truncate">{record.contact?.company}</p>
 
         {followupDue && (
-          <div className="flex items-center gap-1 text-xs text-[#f97316] mb-2 font-medium">
+          <div className="flex items-center gap-1 text-xs text-accent mb-2 font-medium">
             <Clock className="w-3 h-3" />
             Follow up overdue
           </div>
@@ -170,7 +170,7 @@ function KanbanCard({ record }: { record: OutreachRecord }) {
         <div className="flex gap-1.5" onPointerDown={e => e.stopPropagation()}>
           <button
             onClick={() => setShowOutreach(true)}
-            className="flex items-center gap-1 text-xs text-slate-500 hover:text-[#0f1f3d] bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition-colors"
+            className="flex items-center gap-1 text-xs text-content/60 hover:text-content bg-content/5 hover:bg-content/10 px-2 py-1 rounded-lg transition-colors"
           >
             <Mail className="w-3 h-3" />
             Message
@@ -180,7 +180,7 @@ function KanbanCard({ record }: { record: OutreachRecord }) {
               href={record.contact.linkedin_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-xs text-slate-500 hover:text-blue-600 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition-colors"
+              className="flex items-center gap-1 text-xs text-content/60 hover:text-blue-500 bg-content/5 hover:bg-content/10 px-2 py-1 rounded-lg transition-colors"
             >
               <LinkedInIcon className="w-3 h-3" />
               <ExternalLink className="w-2.5 h-2.5" />
@@ -201,14 +201,14 @@ function KanbanCard({ record }: { record: OutreachRecord }) {
 
 function KanbanCardPreview({ record }: { record: OutreachRecord }) {
   return (
-    <div className="bg-white rounded-xl p-3 shadow-lg border border-[#f97316] w-64 rotate-2">
+    <div className="bg-surface rounded-xl p-3 shadow-lg border border-accent w-64 rotate-2">
       <div className="flex items-start gap-2">
-        <div className="w-8 h-8 bg-[#0f1f3d] rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+        <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
           {record.contact?.full_name?.[0] ?? '?'}
         </div>
         <div>
-          <p className="text-sm font-semibold text-[#0f1f3d]">{record.contact?.full_name}</p>
-          <p className="text-xs text-slate-400">{record.contact?.company}</p>
+          <p className="text-sm font-semibold text-content">{record.contact?.full_name}</p>
+          <p className="text-xs text-content/45">{record.contact?.company}</p>
         </div>
       </div>
     </div>

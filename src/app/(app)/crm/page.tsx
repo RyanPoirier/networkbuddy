@@ -20,8 +20,12 @@ export default async function CRMPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-[#0f1f3d]">My Pipeline</h1>
-        <p className="text-slate-500 mt-1">Track every contact from saved to referral received.</p>
+        <div className="inline-flex items-center gap-2 mb-3">
+          <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
+          <span className="text-[10px] uppercase tracking-[0.2em] text-content/50 font-semibold">Pipeline</span>
+        </div>
+        <h1 className="font-display text-4xl font-extrabold tracking-[-0.03em] text-content leading-[0.98]">My Pipeline</h1>
+        <p className="text-content/65 mt-2.5">Track every contact from saved to referral received.</p>
       </div>
       <KanbanBoard initialGrouped={grouped} />
     </div>

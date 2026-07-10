@@ -91,6 +91,14 @@ export const apolloProvider: PeopleProvider = {
     const requiredSets = (titleFilter ?? [])
       .map((t) => t.toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length >= 3))
       .filter((set) => set.length > 0)
+    // Rank-not-filter: a title is "relevant" when it literally contains all the
+    // significant words of a requested title ("GTM Engineer" -> title has both
+    // "gtm" and "engineer"). We rank these first, then BACKFILL with Apollo's
+    // other title/industry/location matches. Hard-filtering was too blunt — it
+    // kept only exact-title rows, so "GTM Engineer" stopped flooding in generic
+    // engineers (good) but "cancer researcher" dropped every "Research Scientist
+    // @ BC Cancer" whose title doesn't spell out "cancer" (bad). Ranking gives
+    // precision when exact matches are plentiful and recall when they're scarce.
     const titleRelevant = (title: string): boolean => {
       if (!requiredSets.length) return true
       const t = title.toLowerCase()
@@ -125,9 +133,16 @@ export const apolloProvider: PeopleProvider = {
       })
       if (!res.ok) return []
       const data = await res.json()
-      return (data.people ?? [])
+      const named = (data.people ?? [])
         .filter((p: ApolloPerson) => (p.first_name ?? p.name ?? '').trim())
-        .filter((p: ApolloPerson) => titleRelevant(p.title ?? ''))
+      // Rank title-relevant rows first, then backfill with the rest; slice down.
+      const ordered = requiredSets.length
+        ? [
+            ...named.filter((p: ApolloPerson) => titleRelevant(p.title ?? '')),
+            ...named.filter((p: ApolloPerson) => !titleRelevant(p.title ?? '')),
+          ]
+        : named
+      return ordered
         .slice(0, limit)
         .map((p: ApolloPerson): ProviderPerson => ({
           provider: 'apollo',

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
 import { getUsage, isPremium } from '@/lib/quota'
-import { searchAll, configuredProviders, SearchFilters, ProviderName } from '@/lib/providers'
+import { searchAll, configuredProviders, SearchFilters, ProviderName, MergedPerson } from '@/lib/providers'
 
 function extractJson(raw: string): SearchFilters | null {
   const stripped = raw.replace(/```json\n?|\n?```/g, '').trim()
@@ -19,6 +19,58 @@ function extractJson(raw: string): SearchFilters | null {
       }
     }
     return null
+  }
+}
+
+// Real-time relevance gate. After the providers return, a fast model reads the
+// original query against each candidate (title — company (location)) and keeps
+// only the ones that genuinely match the intent, best-first. Keyword rules
+// can't tell that "Argyle Cancer Formula @ Rural Doctors Association of
+// Australia" isn't a BC cancer researcher — a model can. It prunes and reranks,
+// but never zeroes out the page (a model hiccup falls back to the raw set).
+async function judgeRelevance(
+  client: Anthropic,
+  query: string,
+  rows: MergedPerson[],
+): Promise<{ rows: MergedPerson[]; removed: number }> {
+  if (rows.length < 2) return { rows, removed: 0 }
+
+  const candidates = rows
+    .map((r, i) => `${i}. ${r.title || 'Unknown title'} — ${r.company || 'Unknown company'}${r.location ? ` (${r.location})` : ''}`)
+    .join('\n')
+
+  const prompt = `A user is searching for people and typed: "${query}".
+Below are candidate results, one per line as "index. job title — company (location)".
+Decide which candidates GENUINELY match the search intent (role, field/industry, seniority, and location if the query names one).
+Be inclusive of real matches even when the title is worded differently — "Research Scientist @ BC Cancer" DOES match "cancer researcher"; "Staff Engineer" matches "software engineer". Only drop CLEAR mismatches: wrong role/field, obvious junk, or wrong location when a place was requested.
+
+Return ONLY JSON: {"keep":[indexes that match, most relevant first]}.
+
+Candidates:
+${candidates}`
+
+  try {
+    const msg = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 400,
+      messages: [{ role: 'user', content: prompt }],
+    })
+    const txt = msg.content[0]?.type === 'text' ? msg.content[0].text : ''
+    const match = txt.match(/\{[\s\S]*\}/)
+    if (!match) return { rows, removed: 0 }
+    const keep = (JSON.parse(match[0]) as { keep?: unknown }).keep
+    if (!Array.isArray(keep)) return { rows, removed: 0 }
+
+    const picked = keep
+      .filter((i): i is number => Number.isInteger(i) && i >= 0 && i < rows.length)
+      .map((i) => rows[i])
+
+    // Safety net: the judge may prune but not empty the page (guards against an
+    // over-strict or malformed response showing nothing on a valid search).
+    if (!picked.length) return { rows, removed: 0 }
+    return { rows: picked, removed: rows.length - picked.length }
+  } catch {
+    return { rows, removed: 0 }
   }
 }
 
@@ -137,6 +189,11 @@ Rules:
     }
   }
 
+  // Real-time AI relevance gate: vet the results against the query before the
+  // user sees them, dropping clear mismatches and reranking best-first.
+  const vetted = await judgeRelevance(client, query, rows)
+  rows = vetted.rows
+
   // Honest filter echo: reflect what was actually applied (relaxation may have
   // dropped the soft filters), and don't advertise location as a hard filter
   // when a company is named (Apollo's city data is too sparse).
@@ -147,6 +204,7 @@ Rules:
     rows,
     filters: appliedFilters,
     premiumLocked,
+    vetted: { removed: vetted.removed },
     sources: { queried: sourcesQueried, errors, configured: configuredProviders() },
     usage: { plan: usage.plan, used: usage.used, quota: usage.quota },
   })

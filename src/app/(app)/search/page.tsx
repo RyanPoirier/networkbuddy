@@ -69,6 +69,7 @@ function SearchContent() {
   const [quotaHit, setQuotaHit] = useState(false)
   const [sourceInfo, setSourceInfo] = useState<SourceInfo | null>(null)
   const [premiumLocked, setPremiumLocked] = useState(false)
+  const [vetted, setVetted] = useState<{ removed: number } | null>(null)
 
   useEffect(() => {
     // Show the plan / god-mode badge on load, before any search runs.
@@ -103,6 +104,7 @@ function SearchContent() {
       setFilters(data.filters ?? null)
       setSourceInfo(data.sources ?? null)
       setPremiumLocked(data.premiumLocked ?? false)
+      setVetted(data.vetted ?? null)
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Search failed')
     } finally {
@@ -278,6 +280,12 @@ function SearchContent() {
             {filterChips.map((c, i) => (
               <span key={i} className="text-xs font-medium bg-accent/10 text-accent rounded-full px-2.5 py-1">{c}</span>
             ))}
+            {vetted && (
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-content/45 ml-auto whitespace-nowrap">
+                <Sparkles className="w-3 h-3 text-accent" />
+                AI-vetted{vetted.removed > 0 ? ` · ${vetted.removed} filtered out` : ''}
+              </span>
+            )}
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-line/10 bg-surface">

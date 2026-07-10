@@ -115,26 +115,37 @@ export async function getValidAccessToken(
   return { accessToken: refreshed.access_token, email: acct.email }
 }
 
-// Has the contact replied on this thread? Reads header metadata only (no
-// bodies) — looks for any message whose From isn't the student's own address.
+const AUTO_SUBJECT = /^\s*(auto[\s-]?reply|automatic reply|out of office|out-of-office|away|vacation|autoresponse|undeliverable|delivery status)/i
+
+// Has the contact GENUINELY replied on this thread? Reads header metadata only
+// (no bodies). Returns true only for a real human reply — auto-responders
+// (out-of-office, vacation, RFC-3834 auto-submitted) are ignored so they don't
+// wrongly stop a sequence.
 export async function threadHasReply(
   accessToken: string,
   threadId: string,
   selfEmail: string
 ): Promise<boolean> {
   const res = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/threads/${threadId}?format=metadata&metadataHeaders=From`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/threads/${threadId}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Auto-Submitted&metadataHeaders=Precedence`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   )
   if (!res.ok) return false
   const data = await res.json()
   const self = selfEmail.toLowerCase()
   for (const m of data.messages ?? []) {
-    const from = (m.payload?.headers ?? []).find(
-      (h: { name: string; value: string }) => h.name.toLowerCase() === 'from'
-    )?.value?.toLowerCase() ?? ''
-    // A message not from the student = a reply (skip auto-only heuristics for now).
-    if (from && !from.includes(self)) return true
+    const headers: { name: string; value: string }[] = m.payload?.headers ?? []
+    const h = (name: string) =>
+      headers.find((x) => x.name.toLowerCase() === name)?.value ?? ''
+    const from = h('from').toLowerCase()
+    if (!from || from.includes(self)) continue // our own message
+    // Filter auto-responders.
+    const autoSubmitted = h('auto-submitted').toLowerCase()
+    const precedence = h('precedence').toLowerCase()
+    if (autoSubmitted && autoSubmitted !== 'no') continue
+    if (['bulk', 'auto_reply', 'junk'].includes(precedence)) continue
+    if (AUTO_SUBJECT.test(h('subject'))) continue
+    return true // a genuine human reply
   }
   return false
 }

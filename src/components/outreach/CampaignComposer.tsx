@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, Sparkles, Mail, Check, CalendarClock } from 'lucide-react'
+import { Loader2, Sparkles, Mail, Check, CalendarClock, Repeat2 } from 'lucide-react'
 
 interface Contact { id: string; full_name: string; title: string | null; company: string | null; email: string }
 interface Draft { contactId: string; name: string; company: string; toEmail: string; subject: string; body: string }
@@ -11,7 +11,8 @@ export default function CampaignComposer({ contacts, gmailEmail }: { contacts: C
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [stage, setStage] = useState<'pick' | 'review' | 'done'>('pick')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<{ queued: number; firstSend: string; lastSend: string } | null>(null)
+  const [withFollowups, setWithFollowups] = useState(true)
+  const [result, setResult] = useState<{ contacts: number; queued: number; followupsPerContact: number; firstSend: string } | null>(null)
 
   function toggle(id: string) {
     setSelected(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -39,7 +40,10 @@ export default function CampaignComposer({ contacts, gmailEmail }: { contacts: C
     try {
       const res = await fetch('/api/campaigns/enqueue', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: drafts.map(d => ({ contactId: d.contactId, toEmail: d.toEmail, subject: d.subject, body: d.body })) }),
+        body: JSON.stringify({
+          followups: withFollowups ? 2 : 0,
+          messages: drafts.map(d => ({ contactId: d.contactId, toEmail: d.toEmail, firstName: d.name.split(' ')[0], subject: d.subject, body: d.body })),
+        }),
       })
       const data = await res.json()
       setResult(data)
@@ -72,9 +76,15 @@ export default function CampaignComposer({ contacts, gmailEmail }: { contacts: C
         <div className="w-12 h-12 rounded-2xl bg-accent/15 flex items-center justify-center mx-auto mb-4">
           <CalendarClock className="w-6 h-6 text-accent" />
         </div>
-        <h2 className="font-display font-bold text-content text-lg">{result.queued} messages scheduled</h2>
-        <p className="text-sm text-content/60 mt-1.5">
-          Sending 3/day from {gmailEmail}. First goes out {new Date(result.firstSend).toLocaleString()}, last {new Date(result.lastSend).toLocaleDateString()}.
+        <h2 className="font-display font-bold text-content text-lg">
+          {result.contacts} {result.contacts === 1 ? 'person' : 'people'} queued
+          {result.followupsPerContact > 0 && ` · ${result.queued} messages`}
+        </h2>
+        <p className="text-sm text-content/60 mt-1.5 max-w-md mx-auto">
+          Sending 3/day from {gmailEmail}, starting {new Date(result.firstSend).toLocaleString()}.
+          {result.followupsPerContact > 0
+            ? ` Each gets ${result.followupsPerContact} follow-ups that auto-stop the moment they reply.`
+            : ' No follow-ups — one message each.'}
         </p>
         <button onClick={() => { setStage('pick'); setSelected(new Set()); setDrafts([]); setResult(null) }}
           className="mt-5 text-accent font-semibold text-sm hover:underline">Start another batch</button>
@@ -86,14 +96,24 @@ export default function CampaignComposer({ contacts, gmailEmail }: { contacts: C
   if (stage === 'review') {
     return (
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
           <p className="text-sm text-content/60">Review & edit — nothing sends until you approve.</p>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => setWithFollowups(v => !v)}
+              title="Sends 2 polite follow-up bumps on the same thread, days apart, that stop the instant they reply."
+              className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl border transition-colors ${
+                withFollowups ? 'border-accent/40 bg-accent/10 text-accent' : 'border-line/20 text-content/50 hover:text-content'
+              }`}
+            >
+              <Repeat2 className="w-3.5 h-3.5" />
+              2 follow-ups {withFollowups ? 'on' : 'off'}
+            </button>
             <button onClick={() => setStage('pick')} className="text-sm text-content/60 hover:text-content px-3 py-2">Back</button>
             <button onClick={schedule} disabled={loading || !drafts.length}
               className="inline-flex items-center gap-2 bg-accent hover:bg-accent-hover text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors disabled:opacity-50">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CalendarClock className="w-4 h-4" />}
-              Schedule {drafts.length} · 3/day
+              Schedule {drafts.length}{withFollowups ? ' + follow-ups' : ''}
             </button>
           </div>
         </div>

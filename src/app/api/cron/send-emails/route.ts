@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   // Everything due, oldest first.
   const { data: due } = await admin
     .from('email_queue')
-    .select('id, user_id, to_email, subject, body, gmail_thread_id')
+    .select('id, user_id, contact_id, to_email, subject, body, gmail_thread_id')
     .eq('status', 'queued')
     .lte('scheduled_for', nowIso)
     .order('scheduled_for', { ascending: true })
@@ -31,6 +31,7 @@ export async function GET(request: NextRequest) {
   const tokenCache = new Map<string, { accessToken: string; email: string } | null>()
   let sent = 0
   let failed = 0
+  let waiting = 0
 
   for (const msg of due) {
     if ((perUser.get(msg.user_id) ?? 0) >= MAX_PER_USER_PER_RUN) continue
@@ -41,11 +42,34 @@ export async function GET(request: NextRequest) {
     const auth = tokenCache.get(msg.user_id)
     if (!auth) continue // Gmail not connected / token dead — leave queued.
 
+    // Thread follow-ups onto the initial: if we've already sent a message to
+    // this contact, reuse its thread so the follow-up lands as a reply-bump.
+    let threadId = msg.gmail_thread_id ?? undefined
+    const isFollowup = /^re:/i.test(msg.subject)
+    if (msg.contact_id && !threadId) {
+      const { data: prior } = await admin
+        .from('email_queue')
+        .select('gmail_thread_id')
+        .eq('user_id', msg.user_id)
+        .eq('contact_id', msg.contact_id)
+        .eq('status', 'sent')
+        .not('gmail_thread_id', 'is', null)
+        .order('sent_at', { ascending: true })
+        .limit(1)
+      const priorThread = prior?.[0]?.gmail_thread_id
+      if (priorThread) threadId = priorThread
+      else if (isFollowup) {
+        // Initial hasn't gone out yet — hold this follow-up for a later run.
+        waiting++
+        continue
+      }
+    }
+
     const result = await sendGmail(auth.accessToken, {
       to: msg.to_email,
       subject: msg.subject,
       body: msg.body,
-      threadId: msg.gmail_thread_id ?? undefined,
+      threadId,
     })
 
     if ('error' in result) {
@@ -66,5 +90,5 @@ export async function GET(request: NextRequest) {
     perUser.set(msg.user_id, (perUser.get(msg.user_id) ?? 0) + 1)
   }
 
-  return NextResponse.json({ sent, failed })
+  return NextResponse.json({ sent, failed, waiting })
 }
